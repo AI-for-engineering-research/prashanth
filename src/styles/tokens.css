@@ -1,0 +1,59 @@
+:root {
+  /* --- Color: cool ivory paper + ink + one accent ---
+     Pulled cooler/less yellow than the original #fffff8 warm white:
+     the base now sits near a neutral off-white so the parchment grain
+     (see base.css body background) reads as texture, not as warmth. --- */
+  --paper:        #f8f5ed;  /* page background — warm ivory */
+  --paper-raised: #fcf9f0;  /* cards, callouts */
+  --paper-sunken: #f0ece1;  /* code blocks, table headers, top bars */
+  --ink:          #1a1a18;  /* primary text + headings */
+  --ink-soft:     #33322e;  /* quiet titles, secondary headings */
+  --muted:        #54534b;  /* sidenotes, strong captions */
+  --faint:        #84837a;  /* metadata, dates, tags */
+  --whisper:      #97968c;  /* colophon, placeholders */
+  --rule:         #ddd9cd;  /* hairlines, figure borders */
+  --rule-soft:    #e6e2d6;  /* table row dividers */
+  --accent:       #9a2b1d;  /* brick red — emphasis only (swap to retheme) */
+
+  /* --- Type families --- */
+  --font-serif: "EB Garamond Variable", "EB Garamond", "Iowan Old Style",
+                "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+  --font-sans:  "Gill Sans", "Gill Sans MT", "Avenir Next", "Segoe UI",
+                system-ui, sans-serif;
+  --font-mono:  "Berkeley Mono", "SF Mono", "JetBrains Mono", Consolas,
+                ui-monospace, monospace;
+
+  /* --- Type scale (root = 16px; loosely a 1.25 modular scale) --- */
+  --text-meta:  0.80rem;
+  --text-note:  1.00rem;
+  --text-body:  1.25rem;
+  --text-h3:    1.50rem;
+  --text-h2:    2.00rem;
+  --text-h1:    3.00rem;
+
+  --lh-tight: 1.15;
+  --lh-body:  1.60;
+  --lh-note:  1.45;
+
+  /* --- Layout --- */
+  --measure:       62ch;
+  --margin-width:  16rem;
+  --gutter:        2.5rem;
+  --page-max:      88rem;
+  --page-pad:      4vw;
+
+  /* --- Spacing rhythm --- */
+  --space-3xs: 0.25rem;
+  --space-2xs: 0.50rem;
+  --space-xs:  0.75rem;
+  --space-s:   1.00rem;
+  --space-m:   1.50rem;
+  --space-l:   2.25rem;
+  --space-xl:  3.50rem;
+  --space-2xl: 5.00rem;
+
+  /* --- Misc --- */
+  --radius: 2px;
+  --hair: 0.5px;
+  --transition: 120ms ease;
+}

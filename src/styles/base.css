@@ -1,0 +1,266 @@
+html { font-size: 100%; -webkit-text-size-adjust: 100%; }
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-serif);
+  font-size: var(--text-body);
+  line-height: var(--lh-body);
+  font-kerning: normal;
+  font-feature-settings: "kern", "liga", "onum";
+  text-rendering: optimizeLegibility;
+  margin: 0;
+}
+
+/* ── Parchment grain ──
+   Deterministic SVG fractal-noise tile (no binary asset), desaturated and
+   multiplied over the cool-ivory base at low opacity. Fixed so it reads as
+   paper the page sits on, never scrolls with text, never touches contrast. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.5;
+  mix-blend-mode: multiply;
+  /* Fiber grain (lightly brightened so multiply dims only darker threads) plus
+     a whisper of corner vignette. Foxing specks live on body::after so their
+     strength is independent of the grain. */
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='f'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncR type='linear' slope='0.55' intercept='0.45'/%3E%3CfeFuncG type='linear' slope='0.55' intercept='0.45'/%3E%3CfeFuncB type='linear' slope='0.55' intercept='0.45'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23f)'/%3E%3C/svg%3E"),
+    radial-gradient(135% 120% at 50% 40%, rgba(255,255,255,0) 70%, rgba(120,108,82,0.08) 100%);
+  background-size: 200px 200px, 100% 100%;
+  background-repeat: repeat, no-repeat;
+}
+
+/* ── Foxing specks ──
+   A separate layer so density (the threshold below) and strength (this
+   opacity) tune independently of the grain. The feColorMatrix keeps only
+   high noise peaks (alpha = 12·R − 9) → sparse, near-binary brown dots. */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: 0.5;
+  mix-blend-mode: multiply;
+  background-repeat: repeat;
+  background-size: 620px 620px;
+  background-image:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='620' height='620'%3E%3Cfilter id='s'%3E%3CfeTurbulence type='turbulence' baseFrequency='0.09' numOctaves='2' seed='11' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0.32 0 0 0 0 0.18 0 0 0 0 0.09 12 0 0 0 -9'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23s)'/%3E%3C/svg%3E");
+}
+
+h1, h2, h3 {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  line-height: var(--lh-tight);
+  color: var(--ink);
+}
+h1 { font-size: var(--text-h1); margin: 0 0 var(--space-m); }
+h2 { font-size: var(--text-h2); margin: var(--space-xl) 0 var(--space-s); }
+h3 { font-size: var(--text-h3); font-style: italic; margin: var(--space-l) 0 var(--space-xs); }
+p, ul, ol { margin: 0 0 var(--space-s); }
+ul, ol { padding-left: var(--space-m); }
+li { margin-bottom: var(--space-2xs); }
+
+a {
+  color: var(--ink);
+  text-underline-offset: 0.12em;
+  text-decoration-thickness: 0.5px;
+  text-decoration-color: var(--rule);
+  transition: color var(--transition);
+}
+a:hover { color: var(--accent); text-decoration-color: var(--accent); }
+
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+strong { font-weight: 600; }
+
+/* ── Page shell ── */
+.page {
+  max-width: var(--page-max);
+  margin-inline: auto;
+  padding-inline: var(--page-pad);
+}
+
+/* ── Masthead ── */
+.masthead {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  border-bottom: var(--hair) solid var(--rule);
+  padding-block: var(--space-s);
+  margin-bottom: var(--space-xl);
+}
+.wordmark {
+  font-family: var(--font-serif);
+  font-size: var(--text-h3);
+  color: var(--ink);
+  text-decoration: none;
+}
+.wordmark span { color: var(--whisper); font-size: 0.8em; }
+.masthead nav {
+  font-family: var(--font-sans);
+  font-size: var(--text-meta);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  display: flex;
+  gap: var(--space-m);
+}
+.masthead nav a { color: var(--faint); text-decoration: none; }
+.masthead nav a[aria-current="page"] {
+  color: var(--ink);
+  border-bottom: 1.5px solid var(--accent);
+  padding-bottom: 2px;
+}
+
+/* ── Kicker / meta ── */
+.kicker {
+  font-family: var(--font-sans);
+  font-size: var(--text-meta);
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: 0 0 var(--space-2xs);
+}
+.newthought { font-variant: small-caps; letter-spacing: 0.03em; font-size: 1.1em; }
+
+/* ── Content column + margin rail ──
+   The whole article is ONE wide column = measure + gutter + margin. Body
+   blocks cap at `measure` and sit flush left; the right strip is the margin
+   rail. Sidenotes float into that strip and `clear:right` so they STACK and
+   can never overlap each other or the body — this is the fix for the old
+   grid-column approach where mismatched body/margin heights collided. */
+.content {
+  max-width: calc(var(--measure) + var(--gutter) + var(--margin-width));
+  margin-inline: auto;
+}
+.content > *:not(.figure-wide) { max-width: var(--measure); }
+
+/* Thematic break: hairline aligned to the text column (no browser auto-centering). */
+hr {
+  border: none;
+  border-top: var(--hair) solid var(--rule);
+  width: var(--measure);
+  max-width: 100%;
+  margin: var(--space-l) 0;
+}
+
+/* ── Sidenote (numbered) + margin note (unnumbered) ── */
+.sn-ref {
+  color: var(--accent);
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: 0.7em;
+  vertical-align: super;
+}
+.sn-toggle { display: none; }
+.sidenote, .marginnote {
+  float: right;
+  clear: right;
+  width: var(--margin-width);
+  margin-bottom: var(--space-s);
+  font-size: var(--text-note);
+  line-height: var(--lh-note);
+  color: var(--muted);
+}
+/* Notes that live INSIDE a measure-wide block (numbered footnote sidenotes)
+   escape into the rail with a negative margin. Notes that are direct children
+   of the wide content column (`:::aside`) already float into the rail, so they
+   take no negative margin — applying it pushed them off the right edge. */
+.sidenote { margin-right: calc(-1 * (var(--margin-width) + var(--gutter))); }
+.content > .marginnote, .content > .sidenote { margin-right: 0; }
+.sidenote sup { color: var(--accent); }
+
+/* ── Figures ── */
+.figure { margin: var(--space-l) 0; }
+.figure svg, .figure img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.figure figcaption {
+  font-size: var(--text-note);
+  line-height: var(--lh-note);
+  color: var(--muted);
+  margin-top: var(--space-2xs);
+}
+.figure-wide { width: 100%; }
+
+/* ── Tables ── */
+table { border-collapse: collapse; font-size: var(--text-note); max-width: var(--measure); width: 100%; }
+th {
+  font-family: var(--font-sans);
+  font-weight: 400;
+  text-align: left;
+  color: var(--muted);
+  border-bottom: 1px solid var(--ink);
+  padding: var(--space-3xs) var(--space-s);
+}
+td {
+  border-bottom: var(--hair) solid var(--rule-soft);
+  padding: var(--space-3xs) var(--space-s);
+}
+td:first-child, th:first-child { padding-left: 0; }
+table .num, td[align="right"], th[align="right"] {
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: 0.9em;
+  font-variant-numeric: lining-nums tabular-nums;
+}
+
+/* ── Code ── */
+pre, code { font-family: var(--font-mono); font-size: 0.85em; }
+code { background: var(--paper-sunken); padding: 0.1em 0.3em; border-radius: var(--radius); }
+pre {
+  background: var(--paper-sunken);
+  border: var(--hair) solid var(--rule);
+  border-radius: var(--radius);
+  padding: var(--space-s);
+  overflow-x: auto;
+}
+pre code { background: none; padding: 0; }
+
+/* ── Entry separators (h2 = a new week/section) ── */
+.content h2 { border-top: var(--hair) solid var(--rule); padding-top: var(--space-l); }
+.content h2:first-of-type { border-top: none; padding-top: 0; }
+
+/* ── Footer ── */
+.colophon {
+  border-top: var(--hair) solid var(--rule);
+  margin-top: var(--space-xl);
+  padding-top: var(--space-s);
+  padding-bottom: var(--space-xl);
+  font-family: var(--font-sans);
+  font-size: var(--text-meta);
+  letter-spacing: 0.04em;
+  color: var(--whisper);
+}
+
+/* ── Responsive: collapse the rail, notes become tap-to-reveal ── */
+@media (max-width: 860px) {
+  .content > *:not(.figure-wide) { max-width: 100%; }
+  .sidenote, .marginnote {
+    float: none;
+    width: auto;
+    margin: var(--space-2xs) 0;
+    display: none;
+    padding-left: var(--space-s);
+    border-left: 2px solid var(--rule);
+  }
+  .marginnote { display: block; }            /* unnumbered notes always show */
+  .sn-toggle:checked + .sidenote { display: block; }
+}
+
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+@media print {
+  body { background: #fff; color: #000; }
+  body::before { display: none; }
+  .masthead nav, .sn-toggle { display: none; }
+  .sidenote, .marginnote { display: block; float: none; color: #000; }
+}
