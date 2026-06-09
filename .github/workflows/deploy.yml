@@ -1,0 +1,54 @@
+name: Deploy to GitHub Pages
+
+# Build the Astro site and publish it to GitHub Pages on every push to main.
+# Requires repo Settings > Pages > Source = "GitHub Actions" (one-time setup).
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Let an in-progress deploy finish; don't pile up concurrent runs.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # uv runs scripts/figures.py (PEP 723 inline deps) during `npm run build`
+      # to regenerate the committed SVGs from data/.
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+
+      - run: npm ci
+      - run: npm run build          # npm run figures && astro build
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
