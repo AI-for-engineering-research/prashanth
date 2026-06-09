@@ -5,8 +5,10 @@
   "private": true,
   "scripts": {
     "figures": "uv run scripts/figures.py",
-    "dev": "npm run figures && astro dev",
-    "build": "npm run figures && astro build",
+    "content": "node scripts/split-log.mjs",
+    "prep": "npm run figures && npm run content",
+    "dev": "npm run prep && astro dev",
+    "build": "npm run prep && astro build",
     "preview": "astro preview"
   },
   "dependencies": {

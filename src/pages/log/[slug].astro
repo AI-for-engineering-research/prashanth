@@ -1,0 +1,18 @@
+---
+import Base from '../../layouts/Base.astro';
+import { getCollection, render } from 'astro:content';
+
+export async function getStaticPaths() {
+  const weeks = await getCollection('log');
+  return weeks.map((entry) => ({ params: { slug: entry.id }, props: { entry } }));
+}
+
+const { entry } = Astro.props;
+const { Content } = await render(entry);
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+---
+<Base title={`${entry.data.title} · Research log`} current="log">
+  <a class="backlink" href={`${base}/log`}>← Log</a>
+  <h1>{entry.data.title}</h1>
+  <Content />
+</Base>

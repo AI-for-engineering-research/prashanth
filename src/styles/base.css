@@ -191,6 +191,38 @@ hr {
 }
 .figure-wide { width: 100%; }
 
+/* ── Log index (week list) ── */
+.log-index { list-style: none; padding: 0; margin: var(--space-l) 0; }
+.log-index li {
+  padding: var(--space-s) 0;
+  border-top: var(--hair) solid var(--rule);
+}
+.log-index li:last-child { border-bottom: var(--hair) solid var(--rule); }
+.log-index a {
+  font-size: var(--text-h3);
+  font-weight: 600;
+  text-decoration: none;
+}
+.log-index a:hover { color: var(--accent); }
+.log-topics {
+  display: block;
+  margin-top: var(--space-3xs);
+  font-size: var(--text-note);
+  color: var(--faint);
+}
+
+/* Back link on a week detail page. */
+.backlink {
+  display: inline-block;
+  margin-bottom: var(--space-m);
+  font-family: var(--font-sans);
+  font-size: var(--text-meta);
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  text-decoration: none;
+}
+.backlink:hover { color: var(--accent); }
+
 /* ── Tables ── */
 table { border-collapse: collapse; font-size: var(--text-note); max-width: var(--measure); width: 100%; }
 th {

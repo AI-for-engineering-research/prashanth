@@ -1,0 +1,21 @@
+---
+import Base from '../../layouts/Base.astro';
+import { getCollection } from 'astro:content';
+// Index of weeks. Each line links to its detail page; the weeks themselves are
+// generated from WeeklyLog.md (see scripts/split-log.mjs).
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+const weeks = (await getCollection('log')).sort((a, b) => a.data.order - b.data.order);
+---
+<Base title="Research log · Prashanth" current="log">
+  <h1>Weekly Log</h1>
+  <ul class="log-index">
+    {weeks.map((w) => (
+      <li>
+        <a href={`${base}/log/${w.id}`}>{w.data.title}</a>
+        {w.data.topics.length > 0 && (
+          <span class="log-topics">{w.data.topics.join(' · ')}</span>
+        )}
+      </li>
+    ))}
+  </ul>
+</Base>
