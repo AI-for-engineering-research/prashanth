@@ -1,0 +1,12 @@
+{
+  "_comment": "Canonical benchmark data. Edit numbers here; figures regenerate from them via `npm run figures`. kind: fast=NPSS fast-equilibrium, npss, py=pyCycle.",
+  "solve_timing": [
+    { "label": "NPSS allFuel",    "ms": 8.2,    "kind": "fast" },
+    { "label": "NPSS GasTbl",     "ms": 10.3,   "kind": "npss" },
+    { "label": "pyCycle TABULAR", "ms": 372.0,  "kind": "py"   },
+    { "label": "NPSS Janaf",      "ms": 1300.0, "kind": "npss" },
+    { "label": "NPSS CEA",        "ms": 1460.0, "kind": "npss" },
+    { "label": "pyCycle CEA",     "ms": 2100.0, "kind": "py"   }
+  ],
+  "headline": { "from": "pyCycle CEA", "to": "NPSS allFuel", "factor": "256×" }
+}
