@@ -1,0 +1,92 @@
+---
+import '@fontsource-variable/eb-garamond';              // upright weight axis
+import '@fontsource-variable/eb-garamond/wght-italic.css'; // italic weight axis
+import 'katex/dist/katex.min.css';
+import '../styles/tokens.css';
+import '../styles/base.css';
+const { title, current } = Astro.props;
+const updated = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+const nav = [
+  { href: '/',                       label: 'Project', key: 'project' },
+  { href: '/log',                    label: 'Log',     key: 'log' },
+  { href: 'https://prashanth.mit.edu/', label: 'About', key: 'about', external: true },
+];
+---
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{title}</title>
+</head>
+<body>
+<div class="page">
+  <header class="masthead">
+    <a class="wordmark" href="/">Prashanth <span>· research log</span></a>
+    <nav>
+      {nav.map((n) => (
+        <a
+          href={n.href}
+          aria-current={current === n.key ? 'page' : undefined}
+          {...(n.external ? { target: '_blank', rel: 'noopener' } : {})}
+        >{n.label}</a>
+      ))}
+    </nav>
+  </header>
+
+  <main class="content">
+    <slot />
+  </main>
+
+  <footer class="colophon">
+    Last updated {updated}
+  </footer>
+</div>
+
+<script>
+  // Progressive enhancement: keep a margin note from spilling past the end of
+  // the section it's cited in. Without JS the notes simply float top-aligned at
+  // their citation line (the CSS default); this pulls any note that would
+  // overflow upward so its bottom sits just above the next heading, while never
+  // letting it overlap the note above it. Re-runs on resize/font load.
+  function layoutSidenotes() {
+    const content = document.querySelector('.content');
+    if (!content) return;
+    const notes = [...content.querySelectorAll('.sidenote, .marginnote')];
+    notes.forEach((n) => { n.style.marginTop = ''; });          // reset to natural float position
+
+    // Below the rail breakpoint notes are inline — leave them alone.
+    if (window.innerWidth <= 860) return;
+
+    const GAP = 16;                                             // min px between a note's bottom and the boundary/next note
+    const y = (el) => el.getBoundingClientRect().top + window.scrollY;
+    const headingTops = [...content.querySelectorAll('h1, h2, h3')].map(y);
+
+    let prevBottom = -Infinity;
+    for (const note of notes) {
+      if (!note.offsetParent) continue;                         // skip hidden (collapsed) notes
+      const rect = note.getBoundingClientRect();
+      const curTop = rect.top + window.scrollY;
+      const h = rect.height;
+
+      // Boundary = top of the next heading after this note's citation line.
+      const boundary = headingTops.find((t) => t > curTop + 1);
+      const allowedBottom = (boundary ?? Infinity) - GAP;
+
+      let desiredTop = curTop;
+      if (curTop + h > allowedBottom) desiredTop = allowedBottom - h;  // pull up to clear the boundary
+      if (desiredTop < prevBottom + GAP) desiredTop = prevBottom + GAP; // but never overlap the note above
+
+      note.style.marginTop = (desiredTop - curTop) + 'px';
+      prevBottom = desiredTop + h;
+    }
+  }
+
+  const run = () => requestAnimationFrame(layoutSidenotes);
+  run();
+  addEventListener('resize', run);
+  addEventListener('load', run);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(run);
+</script>
+</body>
+</html>
