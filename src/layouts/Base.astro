@@ -6,9 +6,10 @@ import '../styles/tokens.css';
 import '../styles/base.css';
 const { title, current } = Astro.props;
 const updated = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');   // '/prashanth' in prod, '' in dev — keeps links base-aware
 const nav = [
-  { href: '/',                       label: 'Project', key: 'project' },
-  { href: '/log',                    label: 'Log',     key: 'log' },
+  { href: base + '/',                   label: 'Project', key: 'project' },
+  { href: base + '/log',                label: 'Log',     key: 'log' },
   { href: 'https://prashanth.mit.edu/', label: 'About', key: 'about', external: true },
 ];
 ---
@@ -22,7 +23,7 @@ const nav = [
 <body>
 <div class="page">
   <header class="masthead">
-    <a class="wordmark" href="/">Prashanth <span>· research log</span></a>
+    <a class="wordmark" href={base + '/'}>Prashanth <span>· research log</span></a>
     <nav>
       {nav.map((n) => (
         <a

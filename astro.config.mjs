@@ -4,8 +4,11 @@ import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import { remarkTufte } from './src/lib/remark-tufte.mjs';
 
-// Site is pure static HTML/CSS. No client JS framework.
+// Static site deployed to GitHub Pages as a project site, hence the base
+// subpath. Internal links read import.meta.env.BASE_URL so they stay correct.
 export default defineConfig({
+  site: 'https://ai-for-engineering-research.github.io',
+  base: '/prashanth',
   markdown: {
     // gfm (footnotes, tables) is on by default. remarkDirective parses
     // `:::aside` / `:::figure{...}`; remarkTufte rewrites footnotes into
