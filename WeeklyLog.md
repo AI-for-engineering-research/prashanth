@@ -93,6 +93,7 @@ good gradients/convergence — which directly motivates the PowerCycles.jl desig
 
 
 ## Week 2
+### Building the website
 
 I had practiced building a simple website for the class and wanted to demo it 
 during the class but didn't really have time to do that. So instead I started looking into how I would really want to maintain my log. And one of the things I wanted to do is really use this as an opportunity to do both continuous documentation as well as interactive visualization that shows the progression of a project. And this is somewhat related to an idea I've been throwing around recently about how the way in which we communicate science can be improved right now. It might even have to change the role that journals play is an important piece, but is the format of how we actually present this research still the best way to do so.
