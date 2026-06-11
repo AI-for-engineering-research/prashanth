@@ -1,3 +1,6 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'astro/config';
 import remarkDirective from 'remark-directive';
 import remarkMath from 'remark-math';
@@ -21,12 +24,42 @@ const watchWeeklyLog = {
   },
 };
 
+// Wikilink embeds (remark-tufte resolveImage) reference files in assets/ by
+// URL (`/prashanth/assets/<file>`), but assets/ isn't Astro's public/ dir so
+// it never reaches the build output. Copy it into dist/ on build and serve it
+// directly in dev so those URLs resolve in both places.
+const ASSETS_DIR = fileURLToPath(new URL('./assets', import.meta.url));
+const MIME = {
+  '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp',
+  '.pdf': 'application/pdf',
+};
+const serveAssets = {
+  name: 'serve-assets',
+  hooks: {
+    'astro:server:setup': ({ server }) => {
+      server.middlewares.use('/prashanth/assets', (req, res, next) => {
+        const rel = decodeURIComponent(req.url.split('?')[0]);
+        const file = path.normalize(path.join(ASSETS_DIR, rel));
+        if (!file.startsWith(ASSETS_DIR + path.sep) || !fs.existsSync(file) || !fs.statSync(file).isFile()) {
+          return next();
+        }
+        res.setHeader('Content-Type', MIME[path.extname(file).toLowerCase()] ?? 'application/octet-stream');
+        fs.createReadStream(file).pipe(res);
+      });
+    },
+    'astro:build:done': ({ dir }) => {
+      fs.cpSync(ASSETS_DIR, path.join(fileURLToPath(dir), 'assets'), { recursive: true });
+    },
+  },
+};
+
 // Static site deployed to GitHub Pages as a project site, hence the base
 // subpath. Internal links read import.meta.env.BASE_URL so they stay correct.
 export default defineConfig({
   site: 'https://ai-for-engineering-research.github.io',
   base: '/prashanth',
-  integrations: [watchWeeklyLog],
+  integrations: [watchWeeklyLog, serveAssets],
   markdown: {
     // gfm (footnotes, tables) is on by default. remarkDirective parses
     // `:::aside` / `:::figure{...}`; remarkTufte rewrites footnotes into
