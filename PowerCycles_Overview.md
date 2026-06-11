@@ -12,7 +12,7 @@ Unfortunately, neither is fully satisfying. NPSS has a long history and is maint
 
 [^othertools]: There are a scattering of other tools that have been developed over the years. GasTurb is a very popular GUI based tool. That was actually the first tool I used in my masters for something like this. There's also other tools that are used in-house by the OEMs etc.
 
-I ran a [benchmark study](baseline_performance_report.html) comparing the two tools, and performance depends heavily on the use case. pyCycle benefits from **analytical gradients** (requiring only ~4 Newton iterations to converge) but incurs heavy **per-iteration overhead** from OpenMDAO/Python, making each solve slow. NPSS requires many more iterations (~19–24) but each iteration is much cheaper.
+I ran a [benchmark study](/prashanth/assets/baseline_performance_report.html) comparing the two tools, and performance depends heavily on the use case. pyCycle benefits from **analytical gradients** (requiring only ~4 Newton iterations to converge) but incurs heavy **per-iteration overhead** from OpenMDAO/Python, making each solve slow. NPSS requires many more iterations (~19–24) but each iteration is much cheaper.
 
 It is also really hard to do non-traditional components like electric machines in an effective way. I've done it before, people have done it but it is not nice. We need to think about how to integrate these systems together in a more efficient manner
 
