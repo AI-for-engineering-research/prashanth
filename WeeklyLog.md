@@ -35,7 +35,7 @@ The next thing I did was systematically profile both **NPSS** and **pyCycle** on
 an identical single-spool turbojet (sea-level static, component performance and
 design drivers pinned identically across both tools) to isolate the
 thermodynamic package and the solver behavior.[^configs] Full details are in
-`baseline_performance_report.html`. Two interesting things were
+[`baseline_performance_report.html`](/prashanth/assets/baseline_performance_report.html). Two interesting things were
 revealed:
 
 [^configs]: Six (tool, thermo package) configurations were tested: pyCycle in CEA and TABULAR;
@@ -120,3 +120,4 @@ They love writing .md files but even better is to ask them to use html files. Yo
 ![[20260610_flowchart.svg|Example of the flow chart Claude made for me.|wide|697]]
 
 After some initial massaging it came up with something interesting that seems encouraging!  
+
