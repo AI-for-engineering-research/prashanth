@@ -115,7 +115,7 @@ After a series of discussions, I decided to experiment and try something quickly
 #### Showcasing work
 One of the things I've realized by experimenting with the AI models is that it very quickly becomes quite fatiguing to review the amount of code that these models write.  After some initial frustration a while back, I realized that I just need to change the way I am thinking about this - the analogy came from thinking about how I interact with students. Typically when I meet with students to discuss research progress, they show me the work that they've done packaged in some easy-to-parse-way - graphs, flow-charts, diagrams, slides etc.  Only rarely when we are actually actively trying to debug something together are we really looking into the raw code. So why not ask the models to show their work! 
 
-They love writing .md files but even better is to ask them to use html files. You can see the skill in my repo [visual-walkthrough](https://github.com/AI-for-engineering-research/prashanth/tree/main/skills/visual-walkthrough) and the full html page [here](../assets/evaluation_presentation.html).
+They love writing .md files but even better is to ask them to use html files. You can see the skill in my repo [visual-walkthrough](https://github.com/AI-for-engineering-research/prashanth/tree/main/skills/visual-walkthrough) and the full html page [here](/prashanth/assets/evaluation_presentation.html).
 
 ![[20260610_flowchart.svg|Example of the flow chart Claude made for me.|wide|697]]
 
