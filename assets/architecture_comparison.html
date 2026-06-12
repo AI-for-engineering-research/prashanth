@@ -1,0 +1,1093 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>One gas, two architectures — mutable Gas state vs the pure FrozenGas core</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f8f9fb;--fg:#1a1a2e;
+  --blue:#2563eb;--blue-light:#dbeafe;--blue-border:#93c5fd;
+  --green:#16a34a;--green-light:#dcfce7;--green-border:#86efac;
+  --orange:#ea580c;--orange-light:#fff7ed;--orange-border:#fdba74;
+  --teal:#0d9488;--teal-light:#ccfbf1;--teal-border:#5eead4;
+  --purple:#7c3aed;--purple-light:#ede9fe;--purple-border:#c4b5fd;
+  --gray:#64748b;--gray-light:#f1f5f9;--gray-border:#cbd5e1;
+  --red:#dc2626;--red-light:#fef2f2;--red-border:#fca5a5;
+  --arrow:#94a3b8;
+  --shadow:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.06);
+  --shadow-lg:0 4px 12px rgba(0,0,0,.10),0 2px 4px rgba(0,0,0,.06);
+  --radius:8px;
+  --font-sans:'Inter',system-ui,-apple-system,sans-serif;
+  --font-mono:'JetBrains Mono','Fira Code',monospace;
+}
+html{font-size:15px;scroll-behavior:smooth}
+body{font-family:var(--font-sans);background:var(--bg);color:var(--fg);line-height:1.6;padding:0}
+
+.header{background:linear-gradient(135deg,#1e3a5f 0%,#2563eb 100%);color:#fff;padding:2.5rem 2rem 2rem;text-align:center}
+.header h1{font-size:1.9rem;font-weight:700;letter-spacing:-.02em;margin-bottom:.35rem}
+.header .subtitle{font-size:1rem;opacity:.92;font-weight:400;max-width:760px;margin:0 auto}
+.header .meta{margin-top:.85rem;font-size:.78rem;opacity:.78;font-family:var(--font-mono)}
+.header .meta a{color:#fff;text-decoration:underline;text-decoration-style:dotted}
+
+.container{max-width:1200px;margin:0 auto;padding:1.5rem 1.5rem 3rem}
+@media(min-width:1200px){
+  body:has(.toc-toggle) .container{
+    margin-left:calc(50vw - 600px + 6rem);
+    margin-right:auto;
+  }
+}
+
+.legend{display:flex;flex-wrap:wrap;gap:.6rem 1.4rem;justify-content:center;margin:1.2rem 0 1.8rem;padding:1rem;background:#fff;border-radius:var(--radius);box-shadow:var(--shadow)}
+.legend-item{display:flex;align-items:center;gap:.4rem;font-size:.8rem;color:var(--fg)}
+.legend-swatch{width:16px;height:16px;border-radius:3px;border:1.5px solid}
+.sw-blue{background:var(--blue-light);border-color:var(--blue)}
+.sw-green{background:var(--green-light);border-color:var(--green)}
+.sw-teal{background:var(--teal-light);border-color:var(--teal)}
+.sw-purple{background:var(--purple-light);border-color:var(--purple)}
+.sw-gray{background:var(--gray-light);border-color:var(--gray)}
+.sw-red{background:var(--red-light);border-color:var(--red)}
+
+.flow{display:flex;flex-direction:column;align-items:center;gap:0}
+
+.arrow{display:flex;flex-direction:column;align-items:center;color:var(--arrow);line-height:1}
+.arrow svg{display:block}
+.arrow-label{font-size:.72rem;color:var(--gray);margin:2px 0;font-family:var(--font-mono)}
+
+.node{position:relative;width:100%;max-width:820px;border-radius:var(--radius);box-shadow:var(--shadow);transition:box-shadow .2s;overflow:hidden;margin:0}
+.node:hover{box-shadow:var(--shadow-lg)}
+.node-header{display:flex;align-items:center;gap:.6rem;padding:.7rem 1rem;cursor:pointer;user-select:none;font-weight:600;font-size:.92rem;border-bottom:1px solid transparent}
+.node-header .badge{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:.15rem .45rem;border-radius:3px;white-space:nowrap}
+.node-header .stations{font-family:var(--font-mono);font-size:.72rem;font-weight:500;color:var(--gray);background:#fff8;padding:.1rem .4rem;border-radius:3px;margin-left:.3rem;border:1px solid #fff5}
+.node-header .typesig{font-family:var(--font-mono);font-size:.7rem;font-weight:500;color:#6d28d9;background:#fff;padding:.1rem .4rem;border-radius:3px;margin-left:.3rem;border:1px solid #c4b5fd;white-space:nowrap}
+.node-header .typesig.gry{color:#475569;border-color:#cbd5e1}
+.node-header .typesig.noz{color:#15803d;border-color:#86efac}
+.node-header .toggle{margin-left:auto;font-size:.75rem;opacity:.5;transition:transform .25s}
+.node-header .toggle.open{transform:rotate(90deg)}
+.node-body{display:none;padding:1rem 1.2rem 1.1rem;font-size:.85rem;line-height:1.7;border-top:1px solid rgba(0,0,0,.06);background:#fff}
+.node-body.show{display:block}
+.node-body p{margin-bottom:.6rem}
+.node-body .eq-block{background:#fafbfd;border-left:3px solid var(--blue);padding:.55rem .8rem;margin:.5rem 0;border-radius:0 var(--radius) var(--radius) 0;overflow-x:auto}
+.node-body .eq-block.green-eq{border-left-color:var(--green)}
+.node-body .eq-block.teal-eq{border-left-color:var(--teal)}
+.node-body .eq-block.purple-eq{border-left-color:var(--purple)}
+.node-body .eq-block.red-eq{border-left-color:var(--red)}
+.node-body .eq-block.gray-eq{border-left-color:var(--gray)}
+.node-body .source-block{background:#1c2127;color:#e8e6df;font-family:var(--font-mono);font-size:.78rem;line-height:1.55;padding:.7rem .9rem;border-radius:6px;margin:.5rem 0;overflow-x:auto;white-space:pre}
+.node-body .source-block .ln{color:#7c8694;display:inline-block;width:2.6em;text-align:right;margin-right:.8em;user-select:none}
+.node-body .ref{font-size:.78rem;color:var(--gray);margin-top:.6rem}
+.node-body .ref a{color:var(--gray);text-decoration:underline;text-decoration-style:dotted}
+.node-body .ref a:hover{color:var(--blue)}
+.node-body code{font-family:var(--font-mono);font-size:.8rem;background:#eef2ff;padding:.1rem .35rem;border-radius:3px}
+.node-body ul{margin:.3rem 0 .5rem 1.2rem}
+.node-body li{margin-bottom:.2rem}
+.node-body .reads-writes{display:grid;grid-template-columns:auto 1fr;gap:.3rem 1rem;font-size:.8rem;background:#f8fafc;padding:.55rem .8rem;border-radius:6px;margin:.5rem 0}
+.node-body .reads-writes .rw-label{color:var(--gray);font-weight:600;font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;padding-top:2px}
+.node-body .perfchip{display:inline-block;font-family:var(--font-mono);font-size:.74rem;background:#0f172a;color:#7dd3fc;padding:.12rem .5rem;border-radius:4px;margin:0 .15rem}
+
+.node-config{background:#fff;border:1.5px solid var(--gray-border)}
+.node-config .node-header{color:var(--gray)}
+.node-config .badge{background:var(--gray-light);color:var(--gray)}
+.node-blue{background:var(--blue-light);border:1.5px solid var(--blue-border)}
+.node-blue .node-header{color:var(--blue)}
+.node-blue .badge{background:#bfdbfe;color:#1d4ed8}
+.node-green{background:var(--green-light);border:1.5px solid var(--green-border)}
+.node-green .node-header{color:var(--green)}
+.node-green .badge{background:#bbf7d0;color:#15803d}
+.node-teal{background:var(--teal-light);border:1.5px solid var(--teal-border)}
+.node-teal .node-header{color:var(--teal)}
+.node-teal .badge{background:#99f6e4;color:#0f766e}
+.node-purple{background:var(--purple-light);border:1.5px solid var(--purple-border)}
+.node-purple .node-header{color:var(--purple)}
+.node-purple .badge{background:#c4b5fd;color:#6d28d9}
+.node-red{background:var(--red-light);border:1.5px solid var(--red-border)}
+.node-red .node-header{color:var(--red)}
+.node-red .badge{background:#fecaca;color:#b91c1c}
+.node-output{background:#fff;border:2px solid var(--purple-border)}
+.node-output .node-header{color:var(--purple)}
+.node-output .badge{background:var(--purple-light);color:var(--purple)}
+.node-decision{background:#fff;border:1.5px dashed var(--gray-border);max-width:600px}
+.node-decision .node-header{color:var(--gray);font-size:.85rem;cursor:default}
+.node-decision .node-header .toggle{display:none}
+.node-decision .node-body{display:block;border-top:none;padding:.4rem 1.2rem .8rem;font-size:.82rem;background:transparent}
+
+.loop-wrapper{width:100%;max-width:880px;border:2px dashed var(--blue-border);border-radius:12px;padding:1.2rem .9rem 1rem;position:relative;margin:0;background:linear-gradient(180deg,#eff6ff10 0%,transparent 80px)}
+.loop-label{position:absolute;top:-13px;left:24px;background:var(--bg);padding:.05rem .55rem;font-size:.78rem;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.05em}
+.loop-label .cond{font-family:var(--font-mono);text-transform:none;background:#fff;padding:.05rem .35rem;border-radius:3px;margin-left:.3rem;border:1px solid var(--blue-border);color:#1d4ed8}
+.loop-inner{display:flex;flex-direction:column;align-items:center;gap:0}
+.loop-feedback{font-size:.78rem;color:var(--blue);text-align:center;padding:.4rem 0;font-family:var(--font-mono)}
+
+.micro-wrapper{width:100%;max-width:920px;border:2px dashed var(--green-border);border-radius:12px;padding:1.6rem .9rem 1rem;position:relative;margin:0;background:linear-gradient(180deg,#dcfce710 0%,transparent 80px)}
+.micro-label{position:absolute;top:-13px;left:24px;background:var(--green-light);padding:.05rem .55rem;font-size:.75rem;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.05em;border:1px solid var(--green-border);border-radius:3px}
+.micro-wrapper.legacy{border-color:var(--red-border);background:linear-gradient(180deg,#fef2f210 0%,transparent 80px)}
+.micro-wrapper.legacy .micro-label{background:var(--red-light);color:var(--red);border-color:var(--red-border)}
+.micro-inner{display:flex;flex-direction:column;align-items:center;gap:0}
+
+.sidebar-callout{width:100%;max-width:820px;margin:1.5rem 0 0;padding:1rem 1.2rem;background:#fff;border:1.5px solid var(--teal-border);border-left:5px solid var(--teal);border-radius:var(--radius);box-shadow:var(--shadow)}
+.sidebar-callout h3{font-size:.95rem;color:var(--teal);margin-bottom:.4rem;display:flex;align-items:center;gap:.4rem}
+.sidebar-callout h3 .badge{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:.15rem .45rem;border-radius:3px;background:var(--teal-light);color:var(--teal)}
+.sidebar-callout p{font-size:.85rem;margin-bottom:.5rem}
+.sidebar-callout .source-block{background:#1c2127;color:#e8e6df;font-family:var(--font-mono);font-size:.78rem;line-height:1.55;padding:.7rem .9rem;border-radius:6px;margin:.5rem 0;overflow-x:auto;white-space:pre}
+.sidebar-callout .source-block .ln{color:#7c8694;display:inline-block;width:2.6em;text-align:right;margin-right:.8em;user-select:none}
+.sidebar-callout .ref{font-size:.78rem;color:var(--gray);margin-top:.5rem}
+.sidebar-callout .ref a{color:var(--gray)}
+
+.station-schematic{margin:1.2rem 0 .5rem;background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);padding:1rem 1.2rem}
+.station-schematic .schem-title{font-size:.9rem;font-weight:700;color:var(--fg);text-align:center;margin-bottom:.6rem}
+.benchtable{width:100%;border-collapse:collapse;font-size:.82rem}
+.benchtable th{background:var(--gray-light);color:var(--gray);font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;padding:.45rem .6rem;text-align:right;border-bottom:2px solid var(--gray-border)}
+.benchtable th:first-child{text-align:left}
+.benchtable td{padding:.45rem .6rem;text-align:right;font-family:var(--font-mono);font-size:.78rem;border-bottom:1px solid #eef1f5}
+.benchtable td:first-child{font-family:var(--font-sans);text-align:left;font-weight:600;color:var(--fg)}
+.benchtable .new{color:var(--green);font-weight:700}
+.benchtable .speed{color:var(--blue);font-weight:700}
+.benchtable .na{color:var(--red);font-weight:600}
+.benchtable .alloc{color:var(--red)}
+.bench-foot{font-size:.74rem;color:var(--gray);margin-top:.5rem;line-height:1.5}
+
+.types-detail{margin:.4rem 0 1rem;display:grid;grid-template-columns:1fr 1fr;gap:.5rem}
+@media(max-width:680px){.types-detail{grid-template-columns:1fr}}
+.type-card{background:#fff;border:1.5px solid var(--gray-border);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+.type-card.tc-legacy-red{border-color:var(--red-border);border-left:4px solid var(--red)}
+.type-card.tc-state-blue{border-color:var(--blue-border);border-left:4px solid var(--blue)}
+.type-card.tc-new-green{border-color:var(--green-border);border-left:4px solid var(--green)}
+.type-header{display:flex;align-items:center;gap:.5rem;padding:.55rem .8rem;cursor:pointer;user-select:none;font-size:.84rem;font-weight:600}
+.type-header .type-badge{font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:.1rem .4rem;border-radius:3px;white-space:nowrap}
+.type-header .type-badge.leg-b{background:#fecaca;color:#b91c1c}
+.type-header .type-badge.cmp-b{background:#bfdbfe;color:#1d4ed8}
+.type-header .type-badge.new-b{background:#bbf7d0;color:#15803d}
+.type-header .type-name{font-family:var(--font-mono);color:var(--fg)}
+.type-header .type-meta{margin-left:auto;font-size:.7rem;font-weight:400;color:var(--gray)}
+.type-header .type-toggle{font-size:.7rem;opacity:.5;transition:transform .25s}
+.type-header .type-toggle.open{transform:rotate(90deg)}
+.type-body{display:none;padding:.6rem .9rem .8rem;font-size:.8rem;line-height:1.6;border-top:1px solid rgba(0,0,0,.06);background:#fafbfd}
+.type-body.show{display:block}
+.type-body p{margin-bottom:.4rem}
+.type-body .type-section{margin-top:.5rem;font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;color:var(--gray);font-weight:700}
+.type-body .field-list{font-family:var(--font-mono);font-size:.74rem;line-height:1.55;color:#374151;background:#fff;padding:.4rem .6rem;border-radius:4px;border:1px solid #e5e7eb;white-space:pre;overflow-x:auto;margin:.25rem 0}
+.type-body code{font-family:var(--font-mono);font-size:.75rem;background:#eef2ff;padding:.05rem .3rem;border-radius:3px}
+.type-body .ref{font-size:.72rem;color:var(--gray);margin-top:.4rem}
+.type-body .ref a{color:var(--gray);text-decoration:underline;text-decoration-style:dotted}
+
+.toc-rail{position:fixed;top:1rem;left:1rem;width:230px;max-height:calc(100vh - 2rem);overflow-y:auto;background:#fff;border:1px solid var(--gray-border);border-radius:var(--radius);box-shadow:var(--shadow);padding:.8rem .7rem;font-size:.74rem;line-height:1.4;z-index:10;transform:translateX(-115%);opacity:0;pointer-events:none;transition:transform .18s ease,opacity .18s ease}
+.toc-rail.open{transform:translateX(0);opacity:1;pointer-events:auto}
+.toc-toggle{position:fixed;top:1rem;left:1rem;width:36px;height:36px;background:#fff;border:1px solid var(--gray-border);border-radius:6px;box-shadow:var(--shadow);cursor:pointer;z-index:11;display:flex;align-items:center;justify-content:center;font-size:15px;color:var(--gray);padding:0;transition:left .18s ease,color .15s ease,border-color .15s ease,box-shadow .15s ease}
+.toc-toggle::before{content:'☰';line-height:1;font-weight:600}
+.toc-toggle.open{left:calc(1rem + 230px + .4rem);color:var(--blue);border-color:var(--blue-border)}
+.toc-toggle.open::before{content:'✕';font-size:13px}
+.toc-toggle:hover{color:var(--blue);border-color:var(--blue);box-shadow:var(--shadow-lg)}
+.toc-toggle:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+@media print{.toc-toggle{display:none}}
+.toc-rail .toc-title{font-size:.62rem;text-transform:uppercase;letter-spacing:.08em;color:var(--gray);font-weight:700;margin:0 0 .2rem;padding:0 .35rem}
+.toc-rail .toc-section{margin-top:.6rem;padding-top:.5rem;border-top:1px solid var(--gray-border)}
+.toc-rail .toc-section:first-of-type{margin-top:0;padding-top:0;border-top:none}
+.toc-rail .toc-section-label{font-size:.62rem;text-transform:uppercase;letter-spacing:.08em;color:var(--gray);font-weight:700;margin:0 0 .25rem;padding:0 .35rem;display:flex;align-items:center;gap:.3rem}
+.toc-rail .toc-section-label .toc-badge{font-size:.55rem;background:var(--gray-light);color:var(--gray);padding:.05rem .3rem;border-radius:2px;font-weight:600}
+.toc-rail ul{list-style:none;margin:0;padding:0}
+.toc-rail li{margin:0}
+.toc-rail a{display:block;color:var(--fg);text-decoration:none;padding:.18rem .45rem;border-radius:3px;border-left:2px solid transparent;transition:background .1s,color .1s,border-color .1s;font-size:.72rem}
+.toc-rail a:hover{background:var(--gray-light);color:var(--blue)}
+.toc-rail a.active{background:var(--blue-light);color:var(--blue);border-left-color:var(--blue);font-weight:600}
+.toc-rail .toc-loop{margin:.3rem 0 .15rem;font-size:.66rem;text-transform:uppercase;letter-spacing:.05em;color:var(--blue);font-weight:700;padding:.15rem .35rem;background:#eff6ff;border-left:2px solid var(--blue);border-radius:0 3px 3px 0}
+.toc-rail .toc-nested{padding-left:.9rem;border-left:1px dashed var(--gray-border);margin-left:.4rem}
+.toc-rail::-webkit-scrollbar{width:6px}
+.toc-rail::-webkit-scrollbar-thumb{background:var(--gray-border);border-radius:3px}
+@media print{.toc-rail{display:none}}
+
+@media(max-width:680px){
+  .header{padding:1.5rem 1rem}
+  .header h1{font-size:1.4rem}
+  .container{padding:1rem .8rem 2rem}
+  .node-header{font-size:.84rem;padding:.6rem .7rem}
+  .node-body{padding:.8rem .7rem}
+}
+@media print{
+  .header{break-after:avoid}
+  .node-body{display:block!important}
+  .toggle{display:none}
+  .loop-wrapper,.micro-wrapper{page-break-inside:avoid}
+  body{font-size:11pt}
+}
+</style>
+</head>
+<body>
+
+<button class="toc-toggle" type="button" aria-label="Toggle walkthrough navigation" aria-controls="toc-rail" aria-expanded="false"></button>
+
+<nav class="toc-rail" id="toc-rail" aria-label="Walkthrough navigation">
+  <div class="toc-title">Walkthrough</div>
+
+  <div class="toc-section">
+    <div class="toc-section-label">Scoreboard &amp; types <span class="toc-badge">5</span></div>
+    <ul>
+      <li><a href="#scoreboard">Measured scoreboard</a></li>
+      <li><a href="#type-gasn" data-toggle="type-gasn">Gas{N}</a></li>
+      <li><a href="#type-gas1d" data-toggle="type-gas1d">Gas1D</a></li>
+      <li><a href="#type-composite" data-toggle="type-composite">composite_species</a></li>
+      <li><a href="#type-frozen" data-toggle="type-frozen">FrozenGas</a></li>
+    </ul>
+  </div>
+
+  <div class="toc-section">
+    <div class="toc-section-label">Legacy mutable path (main)</div>
+    <ul>
+      <li><a href="#node-leg-entry" data-toggle="leg-entry">ENTRY: gas.T = val</a></li>
+      <li><a href="#node-leg-cascade" data-toggle="leg-cascade">setproperty! cascade (Gas{N})</a></li>
+      <li><a href="#node-leg-gas1d" data-toggle="leg-gas1d">Gas1D composite shortcut</a></li>
+    </ul>
+    <div class="toc-loop">↻ set_h! Newton (mutating)</div>
+    <div class="toc-nested">
+      <ul>
+        <li><a href="#node-leg-seth-step" data-toggle="leg-seth-step">Newton step on gas.h</a></li>
+        <li><a href="#node-leg-seth-mut" data-toggle="leg-seth-mut">gas.T = T re-runs cascade</a></li>
+      </ul>
+    </div>
+    <div class="toc-loop">↻ PressureRatio Newton</div>
+    <div class="toc-nested">
+      <ul>
+        <li><a href="#node-leg-pr-step" data-toggle="leg-pr-step">Entropy residual step</a></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="toc-section">
+    <div class="toc-section-label">Pure FrozenGas core (branch)</div>
+    <ul>
+      <li><a href="#node-new-construct" data-toggle="new-construct">Construct once</a></li>
+      <li><a href="#node-new-props" data-toggle="new-props">props(gas, T) — pure</a></li>
+    </ul>
+    <div class="toc-loop">↻ T_of_h Newton (pure)</div>
+    <div class="toc-nested">
+      <ul>
+        <li><a href="#node-new-tofh-step" data-toggle="new-tofh-step">Local Newton step</a></li>
+      </ul>
+    </div>
+    <div class="toc-loop">↻ T_isentropic Newton</div>
+    <div class="toc-nested">
+      <ul>
+        <li><a href="#node-new-tisen-step" data-toggle="new-tisen-step">s0 target + const-γ guess</a></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="toc-section">
+    <div class="toc-section-label">Derivatives</div>
+    <ul>
+      <li><a href="#node-drv-legacy">Why legacy can't AD</a></li>
+      <li><a href="#node-drv-primer" data-toggle="drv-primer">Dual numbers primer</a></li>
+      <li><a href="#node-drv-rules" data-toggle="drv-rules">Analytic rules + hand calc</a></li>
+      <li><a href="#node-drv-ift" data-toggle="drv-ift">IFT rules + Newton trace</a></li>
+      <li><a href="#node-exit-contracts" data-toggle="exit-contracts">Contracts locked by tests</a></li>
+    </ul>
+  </div>
+
+  <div class="toc-section">
+    <div class="toc-section-label">Notes</div>
+    <ul>
+      <li><a href="#sidebar-provenance">How numbers were measured</a></li>
+      <li><a href="#sidebar-compat">What stays compatible</a></li>
+    </ul>
+  </div>
+</nav>
+
+<div class="header">
+  <h1>One gas, two architectures</h1>
+  <p class="subtitle">How a thermodynamic state evaluation flows through the legacy mutable <code style="color:#fecaca">Gas</code>/<code style="color:#fecaca">Gas1D</code> path on public <strong>main</strong> versus the pure, immutable <code style="color:#bbf7d0">FrozenGas</code> core on <strong>cleanup_arch</strong> — with measured per-call cost at every step.</p>
+  <p class="meta">legacy: main @ <a href="https://github.mit.edu/prash/Gas.jl/tree/ed344f8dede22d4d96430f814b2a9951eb6282d0">ed344f8</a> &nbsp;·&nbsp; new: cleanup_arch @ <a href="https://github.mit.edu/prash/Gas.jl/tree/6ca8deab3914533bfce89c881d10556429158cbc">6ca8dea</a> &nbsp;·&nbsp; IdealGasThermo.jl (github.mit.edu/prash/Gas.jl)</p>
+</div>
+
+<div class="container">
+
+<div class="legend">
+  <div class="legend-item"><span class="legend-swatch sw-gray"></span>entry / construction</div>
+  <div class="legend-item"><span class="legend-swatch sw-red"></span>mutating state update (legacy)</div>
+  <div class="legend-item"><span class="legend-swatch sw-green"></span>pure function (new core)</div>
+  <div class="legend-item"><span class="legend-swatch sw-teal"></span>Newton inversion</div>
+  <div class="legend-item"><span class="legend-swatch sw-purple"></span>derivatives / ForwardDiff</div>
+  <div class="legend-item"><span class="legend-swatch sw-blue"></span>numerical kernel</div>
+</div>
+
+<!-- ======================= BENCHMARK SCOREBOARD ======================= -->
+<div class="station-schematic" id="scoreboard">
+  <div class="schem-title">Measured scoreboard — per-call time (minimum), dry air, Apple Silicon, Julia 1.12.6</div>
+  <table class="benchtable">
+    <tr><th>Scenario</th><th>legacy Gas{N}</th><th>legacy Gas1D</th><th>FrozenGas core</th><th>speedup*</th></tr>
+    <tr><td>Set T, read cp + h + ϕ (cycle-deck inner pattern)</td><td>71.9 ns</td><td>69.8 ns</td><td class="new">9.0 ns</td><td class="speed">7.8×</td></tr>
+    <tr><td>Set T, read cp only (1000-point sweep)</td><td>75.3 ns</td><td>66.5 ns</td><td class="new">0.83 ns†</td><td class="speed">80×†</td></tr>
+    <tr><td>Enthalpy inversion (set_h! vs T_of_h)</td><td>249.2 ns</td><td>224.2 ns</td><td class="new">135.6 ns</td><td class="speed">1.7×</td></tr>
+    <tr><td>Isentropic compression, PR = 12</td><td>709 ns <span class="alloc">(49 allocs)</span></td><td>625 ns <span class="alloc">(49 allocs)</span></td><td class="new">146.3 ns (0 allocs)</td><td class="speed">4.3×</td></tr>
+    <tr><td>dh/dT under ForwardDiff, 12 partials</td><td class="na">MethodError</td><td class="na">MethodError</td><td class="new">11.3 ns</td><td class="speed">∞ / 2.8ׇ</td></tr>
+    <tr><td>T_of_h under ForwardDiff, 8 partials</td><td class="na">MethodError</td><td class="na">MethodError</td><td class="new">131.9 ns</td><td class="speed">∞ / 2.1ׇ</td></tr>
+  </table>
+  <p class="bench-foot">
+    * vs the faster legacy column. &nbsp;
+    † the pure <code>cp(gas,T)</code> compiles to SIMD-vectorizable code across the sweep — exactly what the mutable write-back forbids; a single isolated call measures ~2.7 ns (~25×). &nbsp;
+    ‡ ∞ because the legacy path throws <code>MethodError</code> under Dual numbers (measured: <code>legacy_forwarddiff_supported = false</code>); the finite factor compares the extension's analytic rule against generic Dual arithmetic through the same pure code.
+    Source data: <code>benchmark/arch_comparison/benchdata.json</code>, generated by <code>benchmark/arch_comparison/bench_compare.jl</code>. Each value is BenchmarkTools minimum over a shuffled sweep (1000 T ∈ [250, 2200] K or 200 inversion targets), total time ÷ calls.
+  </p>
+</div>
+
+<!-- ======================= TYPE CARDS ======================= -->
+<div class="types-detail">
+
+  <div class="type-card tc-legacy-red" id="type-gasn">
+    <div class="type-header" onclick="toggle('type-gasn')">
+      <span class="type-badge leg-b">Legacy state</span>
+      <span class="type-name">Gas{N}</span>
+      <span class="type-meta">mutable, 9 fields, full species vector</span>
+      <span class="type-toggle" id="toggle-type-gasn">&#9654;</span>
+    </div>
+    <div class="type-body" id="body-type-gasn">
+      <p>Mutable mixture gas. Setting <code>T</code> re-sums NASA polynomials over <em>every</em> nonzero species, every time. Properties are cached fields, valid only for the last <code>T</code>/<code>P</code> written.</p>
+      <div class="type-section">Fields (verbatim, main)</div>
+      <pre class="field-list">P::Float64 # [Pa]
+T::Float64 # [K]
+Tarray::MVector{8, Float64} # Temperature array to make calcs allocation free
+cp::Float64 #[J/mol/K]
+cp_T::Float64 # derivative dcp/dT
+h::Float64  #[J/mol]
+ϕ::Float64  #[J/mol/K] Entropy complement fn ϕ(T) = ∫ cp(T)/T dT from Tref to T
+Y::MVector{N, Float64} # Mass fraction of species
+MW::Float64 # Molecular weight [g/mol]</pre>
+      <p class="ref"><strong>Source:</strong> <a href="https://github.mit.edu/prash/Gas.jl/blob/ed344f8dede22d4d96430f814b2a9951eb6282d0/src/Gas.jl#L8-L20">src/Gas.jl:L8-L20 (main)</a></p>
+    </div>
+  </div>
+
+  <div class="type-card tc-legacy-red" id="type-gas1d">
+    <div class="type-header" onclick="toggle('type-gas1d')">
+      <span class="type-badge leg-b">Legacy state</span>
+      <span class="type-name">Gas1D</span>
+      <span class="type-meta">mutable, wraps composite_species</span>
+      <span class="type-toggle" id="toggle-type-gas1d">&#9654;</span>
+    </div>
+    <div class="type-body" id="body-type-gas1d">
+      <p>Mutable single-pseudo-species gas: the fast legacy path. Avoids the species sum by evaluating the composite's equivalent polynomial, but keeps the mutable cache architecture and the <code>Float64</code> pins.</p>
+      <div class="type-section">Fields (verbatim, main)</div>
+      <pre class="field-list">comp_sp::composite_species
+P::Float64 # [Pa]
+T::Float64 # [K]
+Tarray::MVector{8, Float64} # Temperature array to make calcs allocation free
+cp::Float64 #[J/kg/K]
+cp_T::Float64 # derivative dcp/dT
+h::Float64  #[J/kg]
+ϕ::Float64  #[J/kg/K] Entropy complement fn ϕ(T) = ∫ cp(T)/T dT from Tref to T</pre>
+      <p class="ref"><strong>Source:</strong> <a href="https://github.mit.edu/prash/Gas.jl/blob/ed344f8dede22d4d96430f814b2a9951eb6282d0/src/Gas1D.jl#L6-L18">src/Gas1D.jl:L6-L18 (main)</a></p>
+    </div>
+  </div>
+
+  <div class="type-card tc-state-blue" id="type-composite">
+    <div class="type-header" onclick="toggle('type-composite')">
+      <span class="type-badge cmp-b">Shared concept</span>
+      <span class="type-name">composite_species</span>
+      <span class="type-meta">immutable, heap Vector coefficients</span>
+      <span class="type-toggle" id="toggle-type-composite">&#9654;</span>
+    </div>
+    <div class="type-body" id="body-type-composite">
+      <p>The package's core idea on both branches: a fixed-composition mixture collapsed to one equivalent NASA-9 coefficient set at construction (entropy of mixing folded into the integration constant). <code>FrozenGas</code> is its <code>isbits</code>, mass-scaled successor for the hot path.</p>
+      <div class="type-section">Fields (verbatim, main)</div>
+      <pre class="field-list">name::String
+Tmid::Float64
+alow::Array{Float64,1}
+ahigh::Array{Float64,1}
+MW::Float64
+Hf::Float64
+composition::Dict{String, Float64}</pre>
+      <p class="ref"><strong>Source:</strong> <a href="https://github.mit.edu/prash/Gas.jl/blob/ed344f8dede22d4d96430f814b2a9951eb6282d0/src/species.jl#L23-L31">src/species.jl:L23-L31 (main)</a></p>
+    </div>
+  </div>
+
+  <div class="type-card tc-new-green" id="type-frozen">
+    <div class="type-header" onclick="toggle('type-frozen')">
+      <span class="type-badge new-b">New core</span>
+      <span class="type-name">FrozenGas</span>
+      <span class="type-meta">immutable, isbits, SVector coefficients</span>
+      <span class="type-toggle" id="toggle-type-frozen">&#9654;</span>
+    </div>
+    <div class="type-body" id="body-type-frozen">
+      <p>Immutable <code>isbits</code> frozen-composition gas. Coefficients are <strong>mass-scaled at construction</strong> (premultiplied by 1000/MW) so property polynomials evaluate directly in J/kg-based SI with no per-call division or species summation. All property functions are pure in <code>(gas, T)</code>, generic over <code>Real</code>, zero-allocation, thread-safe by construction.</p>
+      <div class="type-section">Fields (verbatim, branch)</div>
+      <pre class="field-list">alow::SVector{9,Float64}  # mass-scaled coefficients, T &lt; Tmid (1000 K)
+ahigh::SVector{9,Float64} # mass-scaled coefficients, T ≥ Tmid
+MW::Float64               # molecular weight [g/mol]
+R::Float64                # specific gas constant [J/kg/K]
+Hf::Float64               # formation enthalpy at 298.15 K [J/mol]</pre>
+      <div class="type-section">Constructors</div>
+      <pre class="field-list">FrozenGas(sp::AbstractSpecies)
+FrozenGas(X::AbstractVector, name::AbstractString = "frozen gas")</pre>
+      <div class="type-section">Methods (pure in (gas, args))</div>
+      <pre class="field-list">cp(gas, T)   h(gas, T)   s0(gas, T)   props(gas, T)
+R(gas)   gamma(gas, T)
+T_of_h(gas, hspec; Tguess)   T_isentropic(gas, T1, PR; ηp)
+pressure_ratio(gas, T1, T2)</pre>
+      <p class="ref"><strong>Source:</strong> <a href="https://github.mit.edu/prash/Gas.jl/blob/6ca8deab3914533bfce89c881d10556429158cbc/src/frozengas.jl#L25-L31">src/frozengas.jl:L25-L31 (cleanup_arch)</a></p>
+    </div>
+  </div>
+
+</div>
+
+<!-- ======================= FLOW ======================= -->
+<div class="flow">
+
+<!-- ============ LEGACY WRAPPER ============ -->
+<div class="micro-wrapper legacy" id="micro-legacy">
+  <div class="micro-label">Legacy mutable path — public main</div>
+  <div class="micro-inner">
+
+    <div class="node node-config" id="node-leg-entry">
+      <div class="node-header" onclick="toggle('leg-entry')">
+        <span class="badge">Entry</span>
+        Caller writes a temperature: <code>gas.T = val</code>
+        <span class="toggle" id="toggle-leg-entry">&#9654;</span>
+      </div>
+      <div class="node-body" id="body-leg-entry">
+        <p>Every property evaluation begins as an <em>assignment</em>. The interface is <code>Base.setproperty!</code> — pinned to <code>val::Float64</code>, which is what makes Dual numbers a <code>MethodError</code> on this path.</p>
+<pre class="source-block"><span class="ln">L138</span>function Base.setproperty!(gas::Gas, sym::Symbol, val::Float64)
+<span class="ln">L139</span>   ## Setting Temperature
+<span class="ln">L140</span>   if sym === :T</pre>
+        <p class="ref"><strong>Source:</strong> <a href="https://github.mit.edu/prash/Gas.jl/blob/ed344f8dede22d4d96430f814b2a9951eb6282d0/src/Gas.jl#L138-L140">src/Gas.jl:L138-L140 (main)</a></p>
+      </div>
+    </div>
+
+    <div class="arrow">
+      <svg width="2" height="20"><line x1="1" y1="0" x2="1" y2="20" stroke="var(--arrow)" stroke-width="2"/></svg>
+      <span class="arrow-label">sym === :T</span>
+      <svg width="12" height="10"><polygon points="0,0 12,0 6,10" fill="var(--arrow)"/></svg>
+    </div>
+
+    <div class="node node-red" id="node-leg-cascade">
+      <div class="node-header" onclick="toggle('leg-cascade')">
+        <span class="badge">Mutate</span>
+        Hidden cascade: Tarray cache + full species sum
+        <span class="typesig gry">::Gas{N}</span>
+        <span class="stations">≈72 ns/update</span>
+        <span class="toggle" id="toggle-leg-cascade">&#9654;</span>
+      </div>
+      <div class="node-body" id="body-leg-cascade">
+        <p>The assignment triggers four hidden writes. First the temperature-power cache <code>Tarray</code> is rebuilt in place; then the polynomial sum runs over <strong>every nonzero species</strong> via views into the global <code>spdict</code>, and four cached fields are overwritten — including <code>cp_T</code>, computed whether or not anyone reads it.</p>
+        <div class="eq-block red-eq">
+          $$ c_p = 1000\sum_{i:\,Y_i\neq 0} \frac{Y_i\,C_p(T;\,a_i)}{m_i}, \qquad \text{(same loop accumulates } h,\ \phi,\ \partial c_p/\partial T\text{)} $$
+        </div>
+<pre class="source-block"><span class="ln">L141</span>      setfield!(gas, :T, val) # first set T
+<span class="ln">L142</span>      setfield!(gas, :Tarray, Tarray!(val, getfield(gas, :Tarray))) # update Tarray
+<span class="ln">L147</span>      if val&lt;1000.0 #Value given is the desired temperature
+<span class="ln">L148</span>         A = view(spdict.alow, :)
+<span class="ln">L162</span>      @inbounds for (Yᵢ,a, m) in zip(Y, A, MW)
+<span class="ln">L163</span>         if Yᵢ != 0.0
+<span class="ln">L164</span>            cptemp = cptemp + Yᵢ * Cp(TT, a) /m
+<span class="ln">L165</span>             htemp = htemp  + Yᵢ * h(TT, a)  /m
+<span class="ln">L166</span>             ϕtemp = ϕtemp  + Yᵢ * 𝜙(TT, a)  /m
+<span class="ln">L167</span>             cp_Ttemp = cp_Ttemp + Yᵢ * dCpdT(TT, a) /m
+<span class="ln">L171</span>      setfield!(gas, :cp, cptemp*1000.0)
+<span class="ln">L172</span>      setfield!(gas, :h, htemp*1000.0)
+<span class="ln">L173</span>      setfield!(gas, :ϕ, ϕtemp*1000.0)
+<span class="ln">L174</span>      setfield!(gas, :cp_T, cp_Ttemp*1000.0)</pre>
+        <div class="reads-writes">
+          <span class="rw-label">Reads</span><span><code>spdict.alow</code> <code>spdict.ahigh</code> <code>spdict.MW</code> (global database, on the hot path) · <code>gas.Y</code></span>
+          <span class="rw-label">Writes</span><span><code>gas.T</code> <code>gas.Tarray</code> <code>gas.cp</code> <code>gas.h</code> <code>gas.ϕ</code> <code>gas.cp_T</code></span>
+        </div>
+        <p>Measured: <span class="perfchip">71.9 ns</span> per update + all-property read (scoreboard row 1). The cached read itself is nearly free (<code>g.cp</code> ≈ 0.7 ns) — the cost lives in this cascade.</p>
+        <p class="ref"><strong>Source:</strong> <a href="https://github.mit.edu/prash/Gas.jl/blob/ed344f8dede22d4d96430f814b2a9951eb6282d0/src/Gas.jl#L138-L174">src/Gas.jl:L138-L174 (main)</a></p>
+      </div>
+    </div>
+
+    <div class="arrow">
+      <svg width="2" height="20"><line x1="1" y1="0" x2="1" y2="20" stroke="var(--arrow)" stroke-width="2"/></svg>
+      <svg width="12" height="10"><polygon points="0,0 12,0 6,10" fill="var(--arrow)"/></svg>
+    </div>
+
+    <div class="node node-red" id="node-leg-gas1d">
+      <div class="node-header" onclick="toggle('leg-gas1d')">
+        <span class="badge">Mutate</span>
+        Gas1D shortcut: composite polynomial, same mutable shell
+        <span class="typesig gry">::Gas1D</span>
+        <span class="stations">≈70 ns/update</span>
+        <span class="toggle" id="toggle-leg-gas1d">&#9654;</span>
+      </div>
+      <div class="node-body" id="body-leg-gas1d">
+        <p><code>Gas1D</code> replaces the species sum with one equivalent-polynomial evaluation of its <code>composite_species</code> — the right idea, still inside the mutable cache architecture: heap-<code>Vector</code> coefficients behind <code>view</code>s, an <code>MVector</code> write-back, and the always-computed <code>cp_T</code>. Measured, it buys almost nothing over <code>Gas{N}</code> for dry air (69.8 vs 71.9 ns).</p>
+<pre class="source-block"><span class="ln">L55</span>       setfield!(gas, :T, val) # first set T
+<span class="ln">L56</span>       setfield!(gas, :Tarray, Tarray!(val, getfield(gas, :Tarray))) # update Tarray
+<span class="ln">L62</span>       if val&lt;1000.0 #Value given is the desired temperature
+<span class="ln">L63</span>          A = view(sp.alow, :)
+<span class="ln">L71</span>       setfield!(gas, :cp, Cp(TT,A)/MW)
+<span class="ln">L72</span>       setfield!(gas, :h, h(TT, A)/MW)
+<span class="ln">L73</span>       setfield!(gas, :ϕ, 𝜙(TT, A)/MW)
+<span class="ln">L74</span>       setfield!(gas, :cp_T, dCpdT(TT, A)/MW)</pre>
+        <div class="reads-writes">
+          <span class="rw-label">Reads</span><span><code>gas.comp_sp.alow/.ahigh</code> (heap <code>Vector</code>s via <code>view</code>)</span>
+          <span class="rw-label">Writes</span><span><code>gas.T</code> <code>gas.Tarray</code> <code>gas.cp</code> <code>gas.h</code> <code>gas.ϕ</code> <code>gas.cp_T</code></span>
+        </div>
+        <p class="ref"><strong>Source:</strong> <a href="https://github.mit.edu/prash/Gas.jl/blob/ed344f8dede22d4d96430f814b2a9951eb6282d0/src/Gas1D.jl#L52-L89">src/Gas1D.jl:L52-L89 (main)</a></p>
+      </div>
+    </div>
+
+    <div class="arrow">
+      <svg width="2" height="20"><line x1="1" y1="0" x2="1" y2="20" stroke="var(--arrow)" stroke-width="2"/></svg>
+      <span class="arrow-label">gas.h = hspec → set_h!(gas, hspec)</span>
+      <svg width="12" height="10"><polygon points="0,0 12,0 6,10" fill="var(--arrow)"/></svg>
+    </div>
+
+    <div class="loop-wrapper" id="loop-seth">
+      <div class="loop-label">set_h! Newton on mutable state <span class="cond">for i in 1:20 # abs(dT) &gt; ϵ</span></div>
+      <div style="font-size:.78rem;color:var(--blue);text-align:center;padding:.2rem 0 .8rem;font-family:var(--font-mono)">itermax = 20, ϵ = sqrt(eps()) ≈ 1.49e-8 · measured ≈ 224–249 ns/solve</div>
+      <div class="loop-inner">
+
+        <div class="node node-blue" id="node-leg-seth-step">
+          <div class="node-header" onclick="toggle('leg-seth-step')">
+            <span class="badge">Newton</span>
+            Residual from cached fields
+            <span class="toggle" id="toggle-leg-seth-step">&#9654;</span>
+          </div>
+          <div class="node-body" id="body-leg-seth-step">
+            <p>The residual reads the <em>cached</em> <code>gas.h</code> and <code>gas.cp</code> — values only valid because the previous iteration's mutation refreshed them.</p>
+            <div class="eq-block">
+              $$ \Delta T = -\frac{h_\text{cached} - h_\text{spec}}{c_{p,\text{cached}}} $$
+            </div>
+<pre class="source-block"><span class="ln">L307</span>      res = gas.h - hspec # Residual
+<span class="ln">L308</span>      res_t = gas.cp  # ∂R/∂T = ∂h/∂T = cp
+<span class="ln">L309</span>      dT = -res/res_t # Newton step</pre>
+            <p class="ref"><strong>Source:</strong> <a href="https://github.mit.edu/prash/Gas.jl/blob/ed344f8dede22d4d96430f814b2a9951eb6282d0/src/Gas.jl#L302-L325">src/Gas.jl:L302-L325 (main)</a></p>
+          </div>
+        </div>
+
+        <div class="arrow">
+          <svg width="2" height="20"><line x1="1" y1="0" x2="1" y2="20" stroke="var(--arrow)" stroke-width="2"/></svg>
+          <svg width="12" height="10"><polygon points="0,0 12,0 6,10" fill="var(--arrow)"/></svg>
+        </div>
+
+        <div class="node node-red" id="node-leg-seth-mut">
+          <div class="node-header" onclick="toggle('leg-seth-mut')">
+            <span class="badge">Mutate</span>
+            <code>gas.T = T</code> — full cascade re-runs every iteration
+            <span class="toggle" id="toggle-leg-seth-mut">&#9654;</span>
+          </div>
+          <div class="node-body" id="body-leg-seth-mut">
+            <p>Each Newton iteration pays the entire ≈72 ns cascade above — species sum, ϕ it doesn't need until convergence, <code>cp_T</code> it never needs. This is why the architecture, not the algorithm, sets the price: the new core runs the <em>same Newton iteration</em> at 135.6 ns total.</p>
+<pre class="source-block"><span class="ln">L315</span>      T = T + dT
+<span class="ln">L316</span>      gas.T = T</pre>
+            <div class="reads-writes">
+              <span class="rw-label">Writes</span><span><code>gas.T</code> → cascade → <code>gas.Tarray</code> <code>gas.cp</code> <code>gas.h</code> <code>gas.ϕ</code> <code>gas.cp_T</code></span>
+            </div>
+            <p class="ref"><strong>Source:</strong> <a href="https://github.mit.edu/prash/Gas.jl/blob/ed344f8dede22d4d96430f814b2a9951eb6282d0/src/Gas.jl#L315-L316">src/Gas.jl:L315-L316 (main)</a></p>
+          </div>
+        </div>
+
+        <div class="node node-decision">
+          <div class="node-header"><span class="badge">Convergence</span>&nbsp;<code>if abs(dT) ≤ ϵ</code> ?</div>
+          <div class="node-body">
+            <strong>Yes</strong> → <code>break</code>; the gas object now <em>is</em> the answer (T readable as <code>gas.T</code>).
+            <strong>No</strong> → mutate <code>gas.T</code> again and repeat. After the loop, <code>if abs(dT) &gt; ϵ</code> raises an error (src/Gas.jl:L319-L322, main).
+          </div>
+        </div>
+
+        <div class="loop-feedback">↑ If not converged, restart from the residual node above.</div>
+      </div>
+    </div>
+
+    <div class="arrow">
+      <svg width="2" height="20"><line x1="1" y1="0" x2="1" y2="20" stroke="var(--arrow)" stroke-width="2"/></svg>
+      <span class="arrow-label">compress(gas, PR, ηp)</span>
+      <svg width="12" height="10"><polygon points="0,0 12,0 6,10" fill="var(--arrow)"/></svg>
+    </div>
+
+    <div class="loop-wrapper" id="loop-pr">
+      <div class="loop-label">PressureRatio Newton <span class="cond">for i = 1:20# abs(dT)&gt;ϵ</span></div>
+      <div style="font-size:.78rem;color:var(--blue);text-align:center;padding:.2rem 0 .8rem;font-family:var(--font-mono)">measured ≈ 625–709 ns/solve, 49 heap allocations per call</div>
+      <div class="loop-inner">
+
+        <div class="node node-blue" id="node-leg-pr-step">
+          <div class="node-header" onclick="toggle('leg-pr-step')">
+            <span class="badge">Newton</span>
+            Entropy-complement residual on mutable state
+            <span class="toggle" id="toggle-leg-pr-step">&#9654;</span>
+          </div>
+          <div class="node-body" id="body-leg-pr-step">
+            <p>Note this function is <strong>not on public main at all</strong> — <code>turbo.jl</code> was added on this branch; main has no isentropic compression capability. It is shown here as the best available representative of the legacy architecture doing turbomachinery work, and it is what the legacy columns of the scoreboard measure. The 49 allocations per call come from <code>getproperty</code> conveniences on the hot path (e.g. <code>gas.R</code> for <code>Gas{N}</code> computes mole fractions through allocating broadcasts).</p>
+            <div class="eq-block">
+              $$ \text{res} = \frac{\phi - \phi_0}{R} - \frac{\ln(\mathrm{PR})}{\eta_p}, \qquad \Delta T = -\,\text{res}\Big/\frac{\phi_T}{R} $$
+            </div>
+<pre class="source-block"><span class="ln">L22</span>    for i = 1:20# abs(dT)&gt;ϵ
+<span class="ln">L23</span>        res = (gas.ϕ - ϕ0) / R - logPR_ηp
+<span class="ln">L24</span>        res_dT = gas.ϕ_T / R
+<span class="ln">L25</span>        dT = -res / res_dT
+<span class="ln">L31</span>        Tfinal = Tfinal + dT
+<span class="ln">L32</span>        gas.T = Tfinal</pre>
+            <p class="ref"><strong>Source:</strong> <a href="https://github.mit.edu/prash/Gas.jl/blob/6ca8deab3914533bfce89c881d10556429158cbc/src/turbo.jl#L8-L50">src/turbo.jl:L8-L50 (cleanup_arch; absent on main)</a></p>
+          </div>
+        </div>
+
+        <div class="node node-decision">
+          <div class="node-header"><span class="badge">Convergence</span>&nbsp;<code>if abs(dT) ≤ ϵ</code> ?</div>
+          <div class="node-body">
+            <strong>Yes</strong> → break; pressure was already mutated to <code>P0*PR</code> before the loop.
+            <strong>No</strong> → <code>gas.T = Tfinal</code> re-runs the full cascade; repeat.
+          </div>
+        </div>
+
+        <div class="loop-feedback">↑ If not converged, restart from the residual node above.</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="arrow">
+  <svg width="2" height="34"><line x1="1" y1="0" x2="1" y2="34" stroke="var(--arrow)" stroke-width="2"/></svg>
+  <span class="arrow-label">same physics, restructured</span>
+  <svg width="12" height="10"><polygon points="0,0 12,0 6,10" fill="var(--arrow)"/></svg>
+</div>
+
+<!-- ============ NEW WRAPPER ============ -->
+<div class="micro-wrapper" id="micro-new">
+  <div class="micro-label">Pure FrozenGas core — this branch</div>
+  <div class="micro-inner">
+
+    <div class="node node-config" id="node-new-construct">
+      <div class="node-header" onclick="toggle('new-construct')">
+        <span class="badge">Construct</span>
+        Build once: mass-scaled coefficients into an isbits struct
+        <span class="typesig noz">::FrozenGas</span>
+        <span class="toggle" id="toggle-new-construct">&#9654;</span>
+      </div>
+      <div class="node-body" id="body-new-construct">
+        <p>All database lookups and unit conversions happen here, once. The molar→mass scale factor is folded into the coefficients themselves, so no property call ever divides by MW or touches the global <code>spdict</code>.</p>
+        <div class="eq-block gray-eq">
+          $$ \bar a_j \leftarrow \bar a_j \cdot \frac{1000}{MW} \quad\Rightarrow\quad c_p,\ h,\ \phi \text{ evaluate directly in J/kg-based SI} $$
+        </div>
+<pre class="source-block"><span class="ln">L33</span>function FrozenGas(sp::AbstractSpecies)
+<span class="ln">L34</span>    scale = 1000.0 / sp.MW # molar (J/mol) → mass-specific (J/kg)
+<span class="ln">L35</span>    FrozenGas(
+<span class="ln">L36</span>        SVector{9,Float64}(sp.alow) * scale,
+<span class="ln">L37</span>        SVector{9,Float64}(sp.ahigh) * scale,
+<span class="ln">L38</span>        sp.MW,
+<span class="ln">L39</span>        Runiv / sp.MW * 1000.0,
+<span class="ln">L40</span>        sp.Hf,
+<span class="ln">L41</span>    )
+<span class="ln">L42</span>end</pre>
+        <p class="ref"><strong>Source:</strong> <a href="https://github.mit.edu/prash/Gas.jl/blob/6ca8deab3914533bfce89c881d10556429158cbc/src/frozengas.jl#L33-L42">src/frozengas.jl:L33-L42 (cleanup_arch)</a></p>
+      </div>
+    </div>
+
+    <div class="arrow">
+      <svg width="2" height="20"><line x1="1" y1="0" x2="1" y2="20" stroke="var(--arrow)" stroke-width="2"/></svg>
+      <span class="arrow-label">gas is data; T is an argument</span>
+      <svg width="12" height="10"><polygon points="0,0 12,0 6,10" fill="var(--arrow)"/></svg>
+    </div>
+
+    <div class="node node-green" id="node-new-props">
+      <div class="node-header" onclick="toggle('new-props')">
+        <span class="badge">Pure</span>
+        <code>props(gas, T)</code> — shared powers, one log, no state
+        <span class="typesig noz">::FrozenGas</span>
+        <span class="stations">9.0 ns/call</span>
+        <span class="toggle" id="toggle-new-props">&#9654;</span>
+      </div>
+      <div class="node-body" id="body-new-props">
+        <p>All three temperature-dependent properties in one pure call. The Horner-form kernels share the coefficient lookup and the single <code>log(T)</code> — the benefit the mutable Tarray cache was reaching for, with no mutation. Generic over <code>Real</code>, zero allocations (tested), thread-safe by construction. Individual <code>cp</code>/<code>h</code>/<code>s0</code> use the same kernels, so the two paths are bit-identical.</p>
+        <div class="eq-block green-eq">
+          $$ \frac{c_p}{R_u} = \frac{a_1/T + a_2}{T} + a_3 + T\big(a_4 + T(a_5 + T(a_6 + T a_7))\big), \qquad \frac{h}{R_u} = -\frac{a_1}{T} + a_2\ln T + a_8 + T\Big(a_3 + T\big(\tfrac{a_4}{2} + \cdots\big)\Big) $$
+        </div>
+<pre class="source-block"><span class="ln">L64</span>@inline coeffs(gas::FrozenGas, T) = T &lt; 1000.0 ? gas.alow : gas.ahigh
+<span class="ln">L114</span>@inline function props(gas::FrozenGas, T)
+<span class="ln">L115</span>    a = coeffs(gas, T)
+<span class="ln">L116</span>    lnT = log(T)
+<span class="ln">L117</span>    (
+<span class="ln">L118</span>        cp = Runiv * poly_cp_R(a, T),
+<span class="ln">L119</span>        h = Runiv * poly_h_R(a, T, lnT),
+<span class="ln">L120</span>        s0 = Runiv * poly_s0_R(a, T, lnT),
+<span class="ln">L121</span>    )
+<span class="ln">L122</span>end</pre>
+        <div class="reads-writes">
+          <span class="rw-label">Reads</span><span><code>gas.alow</code> / <code>gas.ahigh</code> (stack-resident SVectors)</span>
+          <span class="rw-label">Writes</span><span>nothing — returns a NamedTuple</span>
+        </div>
+        <p>Measured: <span class="perfchip">9.0 ns</span> for all three properties (vs ≈70 ns legacy update); a lone <code>cp(gas,T)</code> call is ~2.7 ns and SIMD-vectorizes across sweeps to <span class="perfchip">0.83 ns</span> amortized.</p>
+        <p class="ref"><strong>Source:</strong> <a href="https://github.mit.edu/prash/Gas.jl/blob/6ca8deab3914533bfce89c881d10556429158cbc/src/frozengas.jl#L64-L122">src/frozengas.jl:L64-L122 (cleanup_arch)</a></p>
+      </div>
+    </div>
+
+    <div class="arrow">
+      <svg width="2" height="20"><line x1="1" y1="0" x2="1" y2="20" stroke="var(--arrow)" stroke-width="2"/></svg>
+      <span class="arrow-label">T_of_h(gas, hspec)</span>
+      <svg width="12" height="10"><polygon points="0,0 12,0 6,10" fill="var(--arrow)"/></svg>
+    </div>
+
+    <div class="loop-wrapper" id="loop-tofh">
+      <div class="loop-label">T_of_h Newton — pure <span class="cond">for _ = 1:NEWTON_MAXITER</span></div>
+      <div style="font-size:.78rem;color:var(--blue);text-align:center;padding:.2rem 0 .8rem;font-family:var(--font-mono)">NEWTON_RTOL = 1e-12, NEWTON_MAXITER = 30 (frozengas.jl L139-L140) · measured 135.6 ns/solve</div>
+      <div class="loop-inner">
+
+        <div class="node node-teal" id="node-new-tofh-step">
+          <div class="node-header" onclick="toggle('new-tofh-step')">
+            <span class="badge">Newton</span>
+            Local step — T is a local variable, nothing mutates
+            <span class="toggle" id="toggle-new-tofh-step">&#9654;</span>
+          </div>
+          <div class="node-body" id="body-new-tofh-step">
+            <p>Identical mathematics to legacy <code>set_h!</code> (dh/dT = cp), but the iterate is a local; each iteration calls the pure <code>h</code> and <code>cp</code> instead of re-running a state cascade that also computes ϕ and cp_T it doesn't need.</p>
+            <div class="eq-block teal-eq">
+              $$ \Delta T = \frac{h_\text{spec} - h(T)}{c_p(T)} $$
+            </div>
+<pre class="source-block"><span class="ln">L150</span>function T_of_h(gas::FrozenGas, hspec; Tguess = 500.0)
+<span class="ln">L151</span>    T = one(hspec / oneunit(hspec)) * Tguess # promote to eltype of hspec
+<span class="ln">L152</span>    for _ = 1:NEWTON_MAXITER
+<span class="ln">L153</span>        dT = (hspec - h(gas, T)) / cp(gas, T)
+<span class="ln">L154</span>        T += dT</pre>
+            <p class="ref"><strong>Source:</strong> <a href="https://github.mit.edu/prash/Gas.jl/blob/6ca8deab3914533bfce89c881d10556429158cbc/src/frozengas.jl#L150-L160">src/frozengas.jl:L150-L160 (cleanup_arch)</a></p>
+          </div>
+        </div>
+
+        <div class="node node-decision">
+          <div class="node-header"><span class="badge">Convergence</span>&nbsp;<code>if abs(dT) ≤ NEWTON_RTOL * abs(T)</code> ?</div>
+          <div class="node-body">
+            <strong>Yes</strong> → <code>return T</code> (a value — the caller's gas object is untouched).
+            <strong>No</strong> → next local iteration. Falling out of the loop raises an error (frozengas.jl:L159).
+          </div>
+        </div>
+
+        <div class="loop-feedback">↑ If not converged, restart from the step node above.</div>
+      </div>
+    </div>
+
+    <div class="arrow">
+      <svg width="2" height="20"><line x1="1" y1="0" x2="1" y2="20" stroke="var(--arrow)" stroke-width="2"/></svg>
+      <span class="arrow-label">T_isentropic(gas, T1, PR; ηp)</span>
+      <svg width="12" height="10"><polygon points="0,0 12,0 6,10" fill="var(--arrow)"/></svg>
+    </div>
+
+    <div class="loop-wrapper" id="loop-tisen">
+      <div class="loop-label">T_isentropic Newton — pure <span class="cond">for _ = 1:NEWTON_MAXITER</span></div>
+      <div style="font-size:.78rem;color:var(--blue);text-align:center;padding:.2rem 0 .8rem;font-family:var(--font-mono)">measured 146.3 ns/solve, 0 allocations (legacy compress: 625–709 ns, 49 allocs)</div>
+      <div class="loop-inner">
+
+        <div class="node node-teal" id="node-new-tisen-step">
+          <div class="node-header" onclick="toggle('new-tisen-step')">
+            <span class="badge">Newton</span>
+            Entropy target + constant-γ initial guess
+            <span class="toggle" id="toggle-new-tisen-step">&#9654;</span>
+          </div>
+          <div class="node-body" id="body-new-tisen-step">
+            <p>Solves the same isentrope relation as legacy <code>PressureRatio</code>, as a pure function of <code>(gas, T1, PR)</code>. The constant-γ closed form seeds Newton so close that typical solves converge in a few iterations.</p>
+            <div class="eq-block teal-eq">
+              $$ s_0(T_2) = s_0(T_1) + \frac{R\,\ln(\mathrm{PR})}{\eta_p}, \qquad T_2^{(0)} = T_1\,\mathrm{PR}^{R/(c_p(T_1)\,\eta_p)}, \qquad \Delta T = \big(s_0^\text{target} - s_0(T)\big)\frac{T}{c_p(T)} $$
+            </div>
+<pre class="source-block"><span class="ln">L182</span>function T_isentropic(gas::FrozenGas, T1, PR; ηp = 1.0)
+<span class="ln">L183</span>    target = s0(gas, T1) + gas.R * log(PR) / ηp
+<span class="ln">L184</span>    T = T1 * PR^(gas.R / cp(gas, T1) / ηp) # constant-γ initial guess
+<span class="ln">L185</span>    for _ = 1:NEWTON_MAXITER
+<span class="ln">L186</span>        dT = (target - s0(gas, T)) * T / cp(gas, T) # ds0/dT = cp/T
+<span class="ln">L187</span>        T += dT</pre>
+            <p class="ref"><strong>Source:</strong> <a href="https://github.mit.edu/prash/Gas.jl/blob/6ca8deab3914533bfce89c881d10556429158cbc/src/frozengas.jl#L182-L192">src/frozengas.jl:L182-L192 (cleanup_arch)</a> &nbsp;|&nbsp; <a href="https://github.mit.edu/prash/Gas.jl/blob/6ca8deab3914533bfce89c881d10556429158cbc/src/frozengas.jl#L169-L170">pressure_ratio: L169-L170</a></p>
+          </div>
+        </div>
+
+        <div class="node node-decision">
+          <div class="node-header"><span class="badge">Convergence</span>&nbsp;<code>if abs(dT) ≤ NEWTON_RTOL * abs(T)</code> ?</div>
+          <div class="node-body">
+            <strong>Yes</strong> → <code>return T</code>. <strong>No</strong> → next local iteration; error after 30 (frozengas.jl:L192).
+          </div>
+        </div>
+
+        <div class="loop-feedback">↑ If not converged, restart from the step node above.</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="arrow">
+  <svg width="2" height="34"><line x1="1" y1="0" x2="1" y2="34" stroke="var(--arrow)" stroke-width="2"/></svg>
+  <span class="arrow-label">what purity buys: derivatives</span>
+  <svg width="12" height="10"><polygon points="0,0 12,0 6,10" fill="var(--arrow)"/></svg>
+</div>
+
+<!-- ============ DERIVATIVES ============ -->
+
+<div class="node node-decision" id="node-drv-legacy">
+  <div class="node-header"><span class="badge">Branch</span>&nbsp;<code>ForwardDiff.derivative(t -&gt; (g.T = t; g.h), 600.0)</code> ?</div>
+  <div class="node-body">
+    On the <strong>legacy path</strong> this throws <code>MethodError</code> — measured in the benchmark harness as <code>legacy_forwarddiff_supported = false</code>. Two structural blocks: the setter pin <code>val::Float64</code> (src/Gas.jl:L138, main) rejects <code>Dual</code>, and the cache field <code>Tarray::MVector{8, Float64}</code> (src/Gas1D.jl:L10, main) cannot hold one. On the <strong>pure core</strong>, generic-over-<code>Real</code> code accepts Duals as-is; the extension below makes them fast.
+  </div>
+</div>
+
+<div class="arrow">
+  <svg width="2" height="28"><line x1="1" y1="0" x2="1" y2="28" stroke="var(--arrow)" stroke-width="2"/></svg>
+  <svg width="12" height="10"><polygon points="0,0 12,0 6,10" fill="var(--arrow)"/></svg>
+</div>
+
+<div class="node node-purple" id="node-drv-primer">
+  <div class="node-header" onclick="toggle('drv-primer')">
+    <span class="badge">Primer</span>
+    What a Dual number is, and why generic cost grows with partials
+    <span class="toggle" id="toggle-drv-primer">&#9654;</span>
+  </div>
+  <div class="node-body" id="body-drv-primer">
+    <p>ForwardDiff replaces a plain number $T$ with a <em>dual number</em> — a value carrying a tangent — built on a nilpotent $\varepsilon$:</p>
+    <div class="eq-block purple-eq">
+      $$ \tilde T = T + \varepsilon\,\partial T, \qquad \varepsilon^2 = 0 $$
+    </div>
+    <p>Every arithmetic primitive is overloaded to propagate the tangent exactly (no truncation error, unlike finite differences). Because $\varepsilon^2$ vanishes, each overload is a differentiation rule in disguise — and composing them yields the chain rule mechanically:</p>
+    <div class="eq-block purple-eq">
+      $$ \begin{aligned}
+      (a + \varepsilon a') + (b + \varepsilon b') &amp;= (a+b) + \varepsilon\,(a' + b') \\[2pt]
+      (a + \varepsilon a')\,(b + \varepsilon b') &amp;= ab + \varepsilon\,(a b' + a' b) + \underbrace{\varepsilon^2 a'b'}_{=\,0} \\[2pt]
+      \ln(a + \varepsilon a') &amp;= \ln a + \varepsilon\,\frac{a'}{a} \\[2pt]
+      \Rightarrow\quad f(T + \varepsilon\,\partial T) &amp;= f(T) + \varepsilon\, f'(T)\,\partial T \quad \text{for any composition } f
+      \end{aligned} $$
+    </div>
+    <p>In a cycle solver the tangent is a <strong>vector</strong>: the Newton solver seeds $\partial T = \nabla_{\!x} T \in \mathbb{R}^N$, the sensitivity of this temperature to all $N$ solver unknowns ($N \approx 8$–$12$ in a PowerCycles-style residual program). Then $h(\tilde T)$ automatically emerges carrying $\nabla_{\!x} h = c_p(T)\,\nabla_{\!x} T$ — a full Jacobian row block per call.</p>
+    <p><strong>The cost model behind the scoreboard.</strong> The NASA-9 enthalpy evaluation costs roughly $K \approx 25$ scalar primitives (Horner chain, one divide, one $\ln$). Generic Dual arithmetic makes <em>every one of them</em> also do $N$ tangent operations; the analytic rule collapses all of that into two plain-Float64 evaluations and a single $N$-wide scaling:</p>
+    <div class="eq-block purple-eq">
+      $$ \text{generic:}\;\; \sim K(1+N)\ \text{ops} \qquad \text{vs} \qquad \text{rule:}\;\; \underbrace{2K}_{h(T),\ c_p(T)\ \text{in Float64}} + \underbrace{N}_{c_p \cdot \partial T} $$
+    </div>
+    <p>Measured exactly so (scoreboard harness, dh/dT per call): generic Dual grows <span class="perfchip">11.5 ns</span> → <span class="perfchip">26.0 ns</span> → <span class="perfchip">31.4 ns</span> as $N$ goes $1 \to 8 \to 12$; the analytic rule stays flat at <span class="perfchip">10.9–11.3 ns</span>, because the only $N$-dependent work left is one multiply of the partials vector.</p>
+    <p class="ref"><strong>Measured data:</strong> <a href="https://github.mit.edu/prash/Gas.jl/blob/56bbb8da02729d2dc07d69e48554dbadb16e224a/benchmark/arch_comparison/benchdata.json">benchmark/arch_comparison/benchdata.json</a> (rows "dh/dT, N partials")</p>
+  </div>
+</div>
+
+<div class="arrow">
+  <svg width="2" height="28"><line x1="1" y1="0" x2="1" y2="28" stroke="var(--arrow)" stroke-width="2"/></svg>
+  <svg width="12" height="10"><polygon points="0,0 12,0 6,10" fill="var(--arrow)"/></svg>
+</div>
+
+<div class="node node-purple" id="node-drv-rules">
+  <div class="node-header" onclick="toggle('drv-rules')">
+    <span class="badge">AD rule</span>
+    Analytic Dual rules: dh/dT = cp, ds0/dT = cp/T
+    <span class="stations">11.3 ns @ 12 partials</span>
+    <span class="toggle" id="toggle-drv-rules">&#9654;</span>
+  </div>
+  <div class="node-body" id="body-drv-rules">
+    <p>The ForwardDiff package extension (a <code>weakdep</code> — the base package stays AD-free) replaces Dual arithmetic through the polynomials with closed forms: one Float64 evaluation of the value, one of the derivative, one N-wide multiply. Measured at 12 partials: <span class="perfchip">11.3 ns</span> vs <span class="perfchip">31.4 ns</span> generic Dual (2.8×) — and within 1.6× of the plain Float64 call.</p>
+    <div class="eq-block purple-eq">
+      $$ h\big(T + \varepsilon\,\partial T\big) = h(T) + c_p(T)\,\varepsilon\,\partial T $$
+    </div>
+<pre class="source-block"><span class="ln">L28</span>h(gas::FrozenGas, d::Dual{Tag}) where {Tag} =
+<span class="ln">L29</span>    Dual{Tag}(h(gas, value(d)), cp(gas, value(d)) * partials(d))
+<span class="ln">L31</span>s0(gas::FrozenGas, d::Dual{Tag}) where {Tag} =
+<span class="ln">L32</span>    Dual{Tag}(s0(gas, value(d)), cp(gas, value(d)) / value(d) * partials(d))</pre>
+
+    <p><strong>Worked example — dry air at 600 K, two solver unknowns.</strong> Suppose the solver's current iterate makes this temperature depend on two unknowns $x_1, x_2$ with sensitivities $\partial T/\partial x_1 = 1.0$ and $\partial T/\partial x_2 = 0.5$, so the seeded input is</p>
+    <div class="eq-block purple-eq">
+      $$ \tilde T = 600 + \varepsilon\,(1.0,\ 0.5) $$
+    </div>
+    <p>The rule needs exactly two plain evaluations (all values below computed with this package; reproduce with the snippet in the provenance note):</p>
+    <div class="eq-block purple-eq">
+      $$ h(600) = 304{,}461.195\ \mathrm{J/kg}, \qquad c_p(600) = 1050.9993\ \mathrm{J/(kg\,K)} $$
+    </div>
+    <p>and one tangent scaling — the entire derivative computation is the last line:</p>
+    <div class="eq-block purple-eq">
+      $$ \begin{aligned}
+      h(\tilde T) &amp;= h(600) + \varepsilon\, c_p(600)\,(1.0,\ 0.5) \\
+                  &amp;= 304{,}461.195 + \varepsilon\,\big(1050.9993 \cdot 1.0,\;\; 1050.9993 \cdot 0.5\big) \\
+                  &amp;= 304{,}461.195 + \varepsilon\,\big(1050.9993,\;\; 525.4996\big)
+      \end{aligned} $$
+    </div>
+    <p>ForwardDiff through the extension returns exactly <code>value = 304461.1954092776</code>, <code>partials = (1050.9992733427, 525.4996366714)</code> — i.e. $\partial h/\partial x_1 = c_p$ and $\partial h/\partial x_2 = c_p/2$, the chain rule done once at the seam. The entropy-complement rule works identically with the closed form $\mathrm{d}s_0/\mathrm{d}T = c_p/T$:</p>
+    <div class="eq-block purple-eq">
+      $$ s_0(\tilde T) = s_0(600) + \varepsilon\,\frac{c_p(600)}{600}\,(1.0,\ 0.5) = 7577.767 + \varepsilon\,(1.7516655,\ 0.8758327) $$
+    </div>
+    <p>measured back from ForwardDiff as <code>partials = (1.7516654556, 0.8758327278)</code> with $c_p(600)/600 = 1.7516654556$ — agreement to the last printed digit, because the rule <em>is</em> the analytic derivative, not an approximation of it.</p>
+    <p class="ref"><strong>Source:</strong> <a href="https://github.mit.edu/prash/Gas.jl/blob/6ca8deab3914533bfce89c881d10556429158cbc/ext/IdealGasThermoForwardDiffExt.jl#L19-L43">ext/IdealGasThermoForwardDiffExt.jl:L19-L43 (cleanup_arch)</a></p>
+  </div>
+</div>
+
+<div class="arrow">
+  <svg width="2" height="28"><line x1="1" y1="0" x2="1" y2="28" stroke="var(--arrow)" stroke-width="2"/></svg>
+  <svg width="12" height="10"><polygon points="0,0 12,0 6,10" fill="var(--arrow)"/></svg>
+</div>
+
+<div class="node node-purple" id="node-drv-ift">
+  <div class="node-header" onclick="toggle('drv-ift')">
+    <span class="badge">AD rule</span>
+    Inversions: implicit function theorem, never the loop
+    <span class="stations">131.9 ns @ 8 partials</span>
+    <span class="toggle" id="toggle-drv-ift">&#9654;</span>
+  </div>
+  <div class="node-body" id="body-drv-ift">
+    <p>Differentiating a Newton loop drags Duals through every iteration (measured 282 ns at 8 partials). The implicit function theorem says you never have to: the converged solution defines $T(h_\text{spec})$ implicitly through the residual $F(T, h_\text{spec}) = h(T) - h_\text{spec} = 0$, so differentiating <em>the equation</em> (not the algorithm) gives the exact sensitivity:</p>
+    <div class="eq-block purple-eq">
+      $$ \mathrm{d}F = \underbrace{\frac{\partial F}{\partial T}}_{c_p(T)}\,\mathrm{d}T + \underbrace{\frac{\partial F}{\partial h_\text{spec}}}_{-1}\,\mathrm{d}h_\text{spec} = 0
+      \quad\Longrightarrow\quad \frac{\partial T}{\partial h_\text{spec}} = \frac{1}{c_p(T^\star)} $$
+    </div>
+    <p>The rule therefore solves the primal in plain Float64 and attaches the partials in one division at the converged $T^\star$:</p>
+<pre class="source-block"><span class="ln">L50</span>function T_of_h(gas::FrozenGas, hd::Dual{Tag}; Tguess = 500.0) where {Tag}
+<span class="ln">L51</span>    T = T_of_h(gas, value(hd); Tguess = Tguess)
+<span class="ln">L52</span>    Dual{Tag}(T, partials(hd) / cp(gas, T))</pre>
+    <p>Measured: <span class="perfchip">131.9 ns</span> at 8 partials — 2.1× faster than Duals-through-the-loop, only ~1.1× above the underived 121 ns solve.</p>
+
+    <p><strong>Worked example — invert dry-air enthalpy back to 1200 K.</strong> Take the target $h_\text{spec} = h(1200) = 975{,}268.911\ \mathrm{J/kg}$ and seed it with a unit tangent, $\tilde h = h_\text{spec} + \varepsilon \cdot 1$. Step 1: the primal Newton solve runs in pure Float64 from <code>Tguess = 500</code> (trace reproduced by running the loop at frozengas.jl L152–L156 with printing — note the quadratic convergence, the digits of accuracy roughly doubling each step):</p>
+<pre class="source-block"><span class="ln">it1</span>dT = +7.5257394966e+02  →  T = 1252.5739496582
+<span class="ln">it2</span>dT = -5.2411201933e+01  →  T = 1200.1627477252
+<span class="ln">it3</span>dT = -1.6274608153e-01  →  T = 1200.0000016437
+<span class="ln">it4</span>dT = -1.6436749141e-06  →  T = 1200.0000000000
+<span class="ln">it5</span>dT = -1.9821747642e-13  →  T = 1200.0000000000   (abs(dT) ≤ 1e-12·T → return)</pre>
+    <p>Step 2: one extra evaluation at the solution, $c_p(1200) = 1174.6222\ \mathrm{J/(kg\,K)}$, and the partial is a single division:</p>
+    <div class="eq-block purple-eq">
+      $$ \frac{\partial T}{\partial h} = \frac{1}{c_p(1200)} = \frac{1}{1174.6222} = 8.5134 \times 10^{-4}\ \mathrm{K/(J/kg)} $$
+    </div>
+    <p>Sanity-checked three ways with this package: the IFT rule returns <code>8.5133757872e-4</code>; a central finite difference $\big(T(h\!+\!1) - T(h\!-\!1)\big)/2$ gives <code>8.5133757864e-4</code> (agreeing to 9 digits — the residual difference is the FD truncation error, not ours); and the physical reading is sensible: raising the target enthalpy by 1 kJ/kg raises the answer by $\approx 0.85$ K, the reciprocal of the local heat capacity. Note what the loop trace <em>didn't</em> contribute: none of the five iterations carried a tangent. Differentiating the loop would have paid Dual arithmetic in all five — and converged to the same number, because Newton's converged result depends only on the equation, not the path.</p>
+
+    <p><strong>The isentrope, with two seeded inputs.</strong> <code>T_isentropic</code> defines $T_2$ implicitly through $G(T_2, T_1, \mathrm{PR}) = s_0(T_2) - s_0(T_1) - \tfrac{R}{\eta_p}\ln(\mathrm{PR}) = 0$. Total differential, using $\mathrm{d}s_0/\mathrm{d}T = c_p/T$:</p>
+    <div class="eq-block purple-eq">
+      $$ \frac{c_p(T_2)}{T_2}\,\mathrm{d}T_2 \;=\; \frac{c_p(T_1)}{T_1}\,\mathrm{d}T_1 \;+\; \frac{R}{\eta_p\,\mathrm{PR}}\,\mathrm{d}\mathrm{PR}
+      \quad\Longrightarrow\quad
+      \frac{\partial T_2}{\partial T_1} = \frac{c_p(T_1)\,T_2}{c_p(T_2)\,T_1}, \qquad
+      \frac{\partial T_2}{\partial \mathrm{PR}} = \frac{R\,T_2}{\eta_p\,\mathrm{PR}\,c_p(T_2)} $$
+    </div>
+    <p>Hand calculation at the scoreboard's compression point ($T_1 = 288.15$ K, $\mathrm{PR} = 12$, $\eta_p = 1$), where the primal solve gives $T_2 = 580.5592$ K, $c_p(T_1) = 1004.278$, $c_p(T_2) = 1046.545$, $R = 287.052$:</p>
+    <div class="eq-block purple-eq">
+      $$ \frac{\partial T_2}{\partial T_1} = \frac{1004.278 \cdot 580.5592}{1046.545 \cdot 288.15} = 1.93341, \qquad
+         \frac{\partial T_2}{\partial \mathrm{PR}} = \frac{287.052 \cdot 580.5592}{12 \cdot 1046.545} = 13.2699\ \mathrm{K} $$
+    </div>
+    <p>ForwardDiff through the extension returns <code>dT2/dPR = 13.2699242259</code> — matching the hand calculation exactly. (Physical reading: one more unit of pressure ratio buys ≈13.3 K of compressor exit temperature at this point; inlet sensitivity is amplified ≈1.93× across the isentrope.) The three Dual methods at ext L57–L74 implement exactly these formulas for $T_1$ seeded, $\mathrm{PR}$ seeded, or both — in the both-seeded case the two tangent contributions simply add, as the total differential says they must.</p>
+<pre class="source-block"><span class="ln">L69</span>function T_isentropic(gas::FrozenGas, T1::Dual{Tag}, PR::Dual{Tag}; ηp = 1.0) where {Tag}
+<span class="ln">L70</span>    T2 = T_isentropic(gas, value(T1), value(PR); ηp = ηp)
+<span class="ln">L71</span>    ∂ = cp(gas, value(T1)) / value(T1) * partials(T1) +
+<span class="ln">L72</span>        gas.R / (ηp * value(PR)) * partials(PR)
+<span class="ln">L73</span>    Dual{Tag}(T2, T2 / cp(gas, T2) * ∂)</pre>
+    <p class="ref"><strong>Source:</strong> <a href="https://github.mit.edu/prash/Gas.jl/blob/6ca8deab3914533bfce89c881d10556429158cbc/ext/IdealGasThermoForwardDiffExt.jl#L50-L74">ext/IdealGasThermoForwardDiffExt.jl:L50-L74 (cleanup_arch)</a></p>
+  </div>
+</div>
+
+<div class="arrow">
+  <svg width="2" height="28"><line x1="1" y1="0" x2="1" y2="28" stroke="var(--arrow)" stroke-width="2"/></svg>
+  <svg width="12" height="10"><polygon points="0,0 12,0 6,10" fill="var(--arrow)"/></svg>
+</div>
+
+<div class="node node-output" id="node-exit-contracts">
+  <div class="node-header" onclick="toggle('exit-contracts')">
+    <span class="badge">Exit</span>
+    Contracts locked by 95 new tests (609 total green)
+    <span class="toggle" id="toggle-exit-contracts">&#9654;</span>
+  </div>
+  <div class="node-body" id="body-exit-contracts">
+    <p>The new interface is guarded by behavioral tests, not implementation tests — they survive any internal refactor:</p>
+    <ul>
+      <li>Value agreement with legacy <code>Gas1D</code> to rtol 1e-10 across 250–2200 K (cp, h, ϕ)</li>
+      <li>Acceptance values: R(air) = 287.05 ± 0.1, cp(300) = 1005 ± 5, γ(300) = 1.400 ± 0.003</li>
+      <li>Formation-inclusive enthalpy datum documented and asserted at 298.15 K</li>
+      <li><code>@allocated == 0</code> after warmup for every property function and inversion</li>
+      <li>ForwardDiff-vs-analytic agreement at rtol 1e-10 (incl. inversions via IFT, nested duals)</li>
+      <li>Extension actually loads (<code>Base.get_extension(...) !== nothing</code>) — not just generic fallback</li>
+      <li>All 514 pre-existing tests untouched and passing: the legacy API is fully intact</li>
+    </ul>
+    <p class="ref"><strong>Source:</strong> <a href="https://github.mit.edu/prash/Gas.jl/blob/6ca8deab3914533bfce89c881d10556429158cbc/test/unit_test_frozengas.jl">test/unit_test_frozengas.jl (cleanup_arch)</a></p>
+  </div>
+</div>
+
+</div><!-- /flow -->
+
+<!-- ======================= SIDEBARS ======================= -->
+
+<div class="sidebar-callout" id="sidebar-provenance">
+  <h3><span class="badge">Provenance</span> How the numbers were measured</h3>
+  <p>All timings: BenchmarkTools.jl on Apple Silicon, Julia 1.12.6, single thread, this repository at commit 6ca8dea (the legacy <code>Gas</code>/<code>Gas1D</code> code on this branch differs from main only in formatting — the diff against <code>ed344f8</code> touches whitespace and one constructor re-initialization). Sweeps use 1000 shuffled temperatures in [250, 2200] K (≈36% below the 1000 K coefficient breakpoint, so the branch is unpredictable) or 200 inversion targets; reported per-call = total ÷ calls, minimum across samples, with medians in <code>benchdata.json</code>. The earlier design-stage prototypes (5–6× pure-vs-mutable, 4.3× analytic-vs-generic at 12 partials) are preserved in <code>claude_sandbox/proto_props/</code> and <code>claude_sandbox/proto_deriv/</code> and agree with the final implementation's numbers.</p>
+  <p>The hand-calculation values in the derivative nodes (600 K Dual example, the 1200 K Newton trace, the isentrope sensitivities) were computed with this package and are reproducible in a REPL:</p>
+<pre class="source-block"><span class="ln">1</span>using IdealGasThermo, ForwardDiff; const IGT = IdealGasThermo
+<span class="ln">2</span>air = FrozenGas(DryAir)
+<span class="ln">3</span>IGT.cp(air, 600.0), IGT.h(air, 600.0)              # 1050.9992733427, 304461.1954092776
+<span class="ln">4</span>IGT.h(air, ForwardDiff.Dual(600.0, 1.0, 0.5))      # partials (1050.9992733427, 525.4996366714)
+<span class="ln">5</span>T_of_h(air, ForwardDiff.Dual(IGT.h(air, 1200.0), 1.0)) # value 1200.0, partial 8.5133757872e-4
+<span class="ln">6</span>ForwardDiff.derivative(pr -&gt; T_isentropic(air, 288.15, pr), 12.0) # 13.2699242259</pre>
+  <p class="ref"><strong>Data:</strong> <a href="https://github.mit.edu/prash/Gas.jl/blob/56bbb8da02729d2dc07d69e48554dbadb16e224a/benchmark/arch_comparison/benchdata.json">benchmark/arch_comparison/benchdata.json</a> &nbsp;|&nbsp; <strong>Harness:</strong> <a href="https://github.mit.edu/prash/Gas.jl/blob/56bbb8da02729d2dc07d69e48554dbadb16e224a/benchmark/arch_comparison/bench_compare.jl">benchmark/arch_comparison/bench_compare.jl</a></p>
+</div>
+
+<div class="sidebar-callout" id="sidebar-compat">
+  <h3><span class="badge">Compatibility</span> What stays exactly as it was</h3>
+  <p>The change is strictly additive. <code>Gas</code>, <code>Gas1D</code>, <code>set_TP!</code>/<code>set_h!</code>/<code>set_hP!</code>/<code>set_Δh!</code>, combustion, vitiated species, humidity, and atmosphere code paths are byte-for-byte the code that was already on this branch; all 514 pre-existing tests pass unmodified. <code>FrozenGas</code> composes with the existing concepts rather than replacing them — it is constructed <em>from</em> a <code>composite_species</code> (including vitiated combustion products), so <code>FrozenGas(vitiated_species("CH4", "Air", FAR))</code> works today. The ForwardDiff dependency is a <code>weakdep</code>: users who never load ForwardDiff pay nothing. Julia compat moved from 1.8 to 1.10 (package extensions). Architecture decision recorded in <a href="https://github.mit.edu/prash/Gas.jl/blob/6ca8deab3914533bfce89c881d10556429158cbc/docs/adr/0001-pure-immutable-gas-core.md">docs/adr/0001-pure-immutable-gas-core.md</a>; domain vocabulary in <a href="https://github.mit.edu/prash/Gas.jl/blob/6ca8deab3914533bfce89c881d10556429158cbc/CONTEXT.md">CONTEXT.md</a>.</p>
+</div>
+
+<div style="margin-top:2rem;padding:1rem 1.2rem;background:#fff;border-radius:8px;box-shadow:var(--shadow);font-size:.78rem;color:var(--gray);line-height:1.6">
+  <strong>Conventions.</strong> Node colors: red = mutating state update, green = pure function, teal = Newton inversion, purple = derivative rules, gray = entry/construction, blue = numerical kernel inside a loop. Loop chips quote the literal source loop header; convergence chips quote the literal termination test. Every expanded node links its pinned-SHA source.
+  <br><strong>Generated from</strong> github.mit.edu/prash/Gas.jl — legacy nodes pinned to main @ <code>ed344f8dede22d4d96430f814b2a9951eb6282d0</code>; new-core nodes pinned to cleanup_arch @ <code>6ca8deab3914533bfce89c881d10556429158cbc</code>. Links into <code>6ca8dea</code> resolve once the branch is pushed to the remote. KaTeX is loaded from CDN; everything else is self-contained.
+</div>
+
+</div><!-- /container -->
+
+<script>
+function toggle(id){
+  const body=document.getElementById('body-'+id);
+  const icon=document.getElementById('toggle-'+id);
+  if(body.classList.contains('show')){
+    body.classList.remove('show');
+    icon.classList.remove('open');
+  }else{
+    body.classList.add('show');
+    icon.classList.add('open');
+    if(window.renderMathInElement){
+      renderMathInElement(body,{delimiters:[
+        {left:'$$',right:'$$',display:true},
+        {left:'$',right:'$',display:false}
+      ]});
+    }
+  }
+}
+window.addEventListener('beforeprint',function(){
+  document.querySelectorAll('.node-body, .type-body').forEach(function(el){el.classList.add('show')});
+  document.querySelectorAll('.toggle, .type-toggle').forEach(function(el){el.classList.add('open')});
+  if(window.renderMathInElement){
+    renderMathInElement(document.body,{delimiters:[
+      {left:'$$',right:'$$',display:true},
+      {left:'$',right:'$',display:false}
+    ]});
+  }
+});
+(function(){
+  var rail = document.querySelector('.toc-rail');
+  var btn = document.querySelector('.toc-toggle');
+  if(rail && btn){
+    var openByDefault = window.matchMedia('(min-width: 1500px)').matches;
+    function setOpen(open){
+      rail.classList.toggle('open', open);
+      btn.classList.toggle('open', open);
+      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+    setOpen(openByDefault);
+    btn.addEventListener('click', function(){ setOpen(!rail.classList.contains('open')); });
+    document.addEventListener('keydown', function(e){
+      if(e.key === 'Escape' && rail.classList.contains('open')){ setOpen(false); }
+    });
+  }
+  var tocLinks = document.querySelectorAll('.toc-rail a[href^="#"]');
+  if(!tocLinks.length) return;
+  tocLinks.forEach(function(link){
+    link.addEventListener('click', function(){
+      var slug = link.dataset.toggle;
+      if(!slug) return;
+      var body = document.getElementById('body-' + slug);
+      if(body && !body.classList.contains('show') && typeof toggle === 'function'){
+        toggle(slug);
+      }
+    });
+  });
+  var targets = Array.prototype.map.call(tocLinks, function(link){
+    var id = link.getAttribute('href').slice(1);
+    var el = document.getElementById(id);
+    return el ? {link: link, el: el} : null;
+  }).filter(Boolean);
+  var ticking = false;
+  function updateActive(){
+    var focus = window.innerHeight * 0.28;
+    var active = null;
+    for(var i=0; i<targets.length; i++){
+      if(targets[i].el.getBoundingClientRect().top <= focus){ active = targets[i].link; }
+    }
+    tocLinks.forEach(function(l){ l.classList.remove('active'); });
+    if(active) active.classList.add('active');
+    ticking = false;
+  }
+  function onScroll(){ if(!ticking){ requestAnimationFrame(updateActive); ticking = true; } }
+  window.addEventListener('scroll', onScroll, {passive:true});
+  window.addEventListener('resize', onScroll, {passive:true});
+  updateActive();
+})();
+</script>
+
+</body>
+</html>

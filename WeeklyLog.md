@@ -121,3 +121,24 @@ They love writing .md files but even better is to ask them to use html files. Yo
 
 After some initial massaging it came up with something interesting that seems encouraging!  
 
+## Week 3
+*2026-06-11 (Thu, 11th Jun)*
+
+Ok so in order to get to the next steps in PowerCycles.jl I'll need to use ideal gas thermo instead of fixed gas properties.  Almost all the computational cost in gas type in sizing or off design calculation is actually in the thermo, so I'm going to go back to my other package (that is already much much faster than pyCycle because it uses the NASA-9 polynomials instead of equilibrium calculations), to try and clean it up and make it more AD friendly. 
+
+#### Claude tells me everything I did wrong
+ Right off the bat, Claude found some obvious areas for performance enhancement (I tried this with Fable 5 just because they announced they are going to take it away from us very soon).  when I initially wrote this package about two years ago, I took some care to try and minimize all the allocations and try and do smart things like calculate things only once, cache them etc... but turns out making almost all of my types immutable and testing the performance would have shown me how I could make it faster. Claude wrote the benchmarks and convinced me that these changes will make the most frequent calculations (set temperature and query $$c_p, h, s$$  for a gas) by 5-10x *and* make it AD compatible. 
+
+You can see how I asked Claude to [show me it's work here](/prashanth/assets/architecture_comparison.html). Now I really need to sleep.
+
+*2026-06-12 (Fri, 12th Jun)*
+More interestingly this forced me to think of the architecture a little differently. I always had this mental model of a gas "object" that's stores the current state of a gas. So you could do things like:
+```
+print(gas.T, gas.P, gas.cp)
+```
+
+This seemed like the sort of natural OOP model, where then you'd have methods like `set_TP` etc[^julia].  But some benchmarks have convinced me that the benefits of thinking more functionally are actually quite substantial (ofc this is something that might be obvious to people who have more software smarts and who think about performance all the time, but it was a pretty good learning for me I think).
+
+[^julia]: Technically in Julia this would not be a method of the object but rather a dispatch on the type of `Gas`, so something like `set_TP(gas, T, P)` but regardless the gas type was storing both it's identity "I'am hydrogen" and it's state "I am at 298.15 K". 
+
+HA Claude was so snarky about something I had tried to do a while back (without the all knowing wisdom of AI...) that was sitting uncommitted in my local repo: (Amusingly, the untracked `FlowStations.jl` scratch file in the repo was groping toward exactly this.)
