@@ -122,6 +122,7 @@ They love writing .md files but even better is to ask them to use html files. Yo
 After some initial massaging it came up with something interesting that seems encouraging!  
 
 ## Week 3
+
 *2026-06-11 (Thu, 11th Jun)*
 
 Ok so in order to get to the next steps in PowerCycles.jl I'll need to use ideal gas thermo instead of fixed gas properties.  Almost all the computational cost in gas type in sizing or off design calculation is actually in the thermo, so I'm going to go back to my other package (that is already much much faster than pyCycle because it uses the NASA-9 polynomials instead of equilibrium calculations), to try and clean it up and make it more AD friendly. 
