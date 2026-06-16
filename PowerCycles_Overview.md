@@ -44,3 +44,21 @@ I also want this to be AI conducive or Agent compatible from the start[^agent].
   (cross-check today, foundation for the future component graph). MTK needs to prove its worth.
 - **Validation:** a property-style test suite (`test/`) with randomized tests and 
   invariants across thermo, components, maps, cycles, and solver.
+
+
+## Fast gas calculations
+
+*2026-06-15 (Mon, 15th Jun)*
+One of the important things when it comes to the performance of these cycle decks is ensuring we have really fast thermodynamics (e.g., profiling the pyCycle turbojet example shows the thermo takes ~80% of the solve time [^thermo_profile]).
+
+Interestingly, in the `TABULAR` pyCycle solve, most of the time is actually openMDAO overhead (the interpolation itself is only ~2-3% of the solve time) associated with the thermo "subgroup" components throughout the engine. 
+
+[^thermo_profile]: Thermo as a share of total solve time, by property package
+    (cold = fresh solve, warm = re-solve from a nearby converged state):
+
+    | package | fresh solve | re-solve |
+    | --- | ---: | ---: |
+    | TABULAR | 58.5% | 72.5% |
+    | CEA/JANAF | 83.1% | 89.3% |
+
+    Absolute warm / per-solve: TABULAR ~108 ms, CEA ~363 ms.

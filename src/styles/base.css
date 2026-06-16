@@ -265,6 +265,30 @@ table .num, td[align="right"], th[align="right"] {
   font-variant-numeric: lining-nums tabular-nums;
 }
 
+/* Compact table for a margin note / sidenote rail (16rem). Built from <span>s
+   with display:table so it stays legal phrasing content inside the note's
+   paragraph — a real <table> there gets hoisted out by the HTML parser. The
+   default cell padding (var(--space-s)) is also too wide for three columns. */
+.margintable { display: table; width: 100%; font-size: 0.92em; margin: var(--space-2xs) 0; }
+.margintable .mt-row { display: table-row; }
+.margintable .mt-cell {
+  display: table-cell;
+  padding: 2px var(--space-2xs);
+  border-bottom: var(--hair) solid var(--rule-soft);
+}
+.margintable .mt-cell:first-child { padding-left: 0; }
+.margintable .mt-head .mt-cell {
+  font-family: var(--font-sans);
+  color: var(--muted);
+  border-bottom: 1px solid var(--ink);
+}
+.margintable .mt-r {
+  text-align: right;
+  font-family: var(--font-mono);
+  font-variant-numeric: lining-nums tabular-nums;
+}
+.margintable .mt-c { text-align: center; }
+
 /* ── Code ── */
 pre, code { font-family: var(--font-mono); font-size: 0.85em; }
 code { background: var(--paper-sunken); padding: 0.1em 0.3em; border-radius: var(--radius); }

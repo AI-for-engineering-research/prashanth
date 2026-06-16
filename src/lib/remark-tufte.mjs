@@ -58,6 +58,26 @@ function inline(node) {
     case 'link':
       return `<a href="${esc(node.url)}">${node.children.map(inline).join('')}</a>`;
     case 'paragraph':  return node.children.map(inline).join('');
+    case 'table': {
+      // GFM table → compact margin table built from <span>s with display:table
+      // CSS, NOT a real <table>. Footnote notes render inside a <p>, and the
+      // HTML parser hoists a block <table> out of any paragraph (it would land
+      // outside the sidenote). Spans stay legal phrasing content, so they keep.
+      // node.align carries per-column alignment.
+      const align = node.align || [];
+      const cells = (row) =>
+        row.children
+          .map((cell, i) => {
+            const a = align[i] === 'right' ? ' mt-r' : align[i] === 'center' ? ' mt-c' : '';
+            return `<span class="mt-cell${a}">${cell.children.map(inline).join('')}</span>`;
+          })
+          .join('');
+      const [head, ...body] = node.children;
+      const rows = [];
+      if (head) rows.push(`<span class="mt-row mt-head">${cells(head)}</span>`);
+      for (const r of body) rows.push(`<span class="mt-row">${cells(r)}</span>`);
+      return `<span class="margintable">${rows.join('')}</span>`;
+    }
     default:
       // Unknown block/inline: serialize any children, else its raw value.
       if (node.children) return node.children.map(inline).join('');
@@ -66,8 +86,17 @@ function inline(node) {
 }
 
 // Join a definition's block children (usually one paragraph) into inline HTML.
+// Paragraphs are separated with <br>, but block-level pieces (a table) already
+// break the flow, so we don't wrap a <br> against them.
 function renderBlocks(children) {
-  return children.map(inline).join('<br>');
+  let out = '';
+  children.forEach((child, i) => {
+    if (i > 0 && child.type !== 'table' && children[i - 1].type !== 'table') {
+      out += '<br>';
+    }
+    out += inline(child);
+  });
+  return out;
 }
 
 export function remarkTufte() {

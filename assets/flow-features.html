@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The pure flow layer: Mach state-setting &amp; isentropic efficiency</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+        onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f8f9fb;--fg:#1a1a2e;
+  --blue:#2563eb;--blue-light:#dbeafe;--blue-border:#93c5fd;
+  --green:#16a34a;--green-light:#dcfce7;--green-border:#86efac;
+  --orange:#ea580c;--orange-light:#fff7ed;--orange-border:#fdba74;
+  --teal:#0d9488;--teal-light:#ccfbf1;--teal-border:#5eead4;
+  --purple:#7c3aed;--purple-light:#ede9fe;--purple-border:#c4b5fd;
+  --gray:#64748b;--gray-light:#f1f5f9;--gray-border:#cbd5e1;
+  --red:#dc2626;--red-light:#fef2f2;--red-border:#fca5a5;
+  --arrow:#94a3b8;
+  --shadow:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.06);
+  --shadow-lg:0 4px 12px rgba(0,0,0,.10),0 2px 4px rgba(0,0,0,.06);
+  --radius:8px;
+  --font-sans:'Inter',system-ui,-apple-system,sans-serif;
+  --font-mono:'JetBrains Mono','Fira Code',monospace;
+}
+html{font-size:15px;scroll-behavior:smooth}
+body{font-family:var(--font-sans);background:var(--bg);color:var(--fg);line-height:1.6;padding:0}
+
+.header{background:linear-gradient(135deg,#1e3a5f 0%,#2563eb 100%);color:#fff;padding:2.5rem 2rem 2rem;text-align:center}
+.header h1{font-size:1.9rem;font-weight:700;letter-spacing:-.02em;margin-bottom:.35rem}
+.header .subtitle{font-size:1rem;opacity:.92;font-weight:400;max-width:760px;margin:0 auto}
+.header .meta{margin-top:.85rem;font-size:.78rem;opacity:.78;font-family:var(--font-mono)}
+.header .meta a{color:#fff;text-decoration:underline;text-decoration-style:dotted}
+
+.container{max-width:1200px;margin:0 auto;padding:1.5rem 1.5rem 3rem}
+/* When a TOC toggle / rail is present, bias the container right by ~6rem from
+   centered. Toggle button sits alone in the left margin (rail closed) or rail
+   itself occupies the left (rail open); either way the centered layout leaves
+   wasted space on the right. The shift is uniform: container moves the same
+   amount regardless of viewport, so wide monitors don't get an extreme bias.
+   Gated on body:has(.toc-toggle) so files without a TOC stay centered. */
+@media(min-width:1200px){
+  body:has(.toc-toggle) .container{
+    margin-left:calc(50vw - 600px + 6rem);
+    margin-right:auto;
+  }
+}
+
+.legend{display:flex;flex-wrap:wrap;gap:.6rem 1.4rem;justify-content:center;margin:1.2rem 0 1.8rem;padding:1rem;background:#fff;border-radius:var(--radius);box-shadow:var(--shadow)}
+.legend-item{display:flex;align-items:center;gap:.4rem;font-size:.8rem;color:var(--fg)}
+.legend-swatch{width:16px;height:16px;border-radius:3px;border:1.5px solid}
+.sw-blue{background:var(--blue-light);border-color:var(--blue)}
+.sw-green{background:var(--green-light);border-color:var(--green)}
+.sw-orange{background:var(--orange-light);border-color:var(--orange)}
+.sw-teal{background:var(--teal-light);border-color:var(--teal)}
+.sw-purple{background:var(--purple-light);border-color:var(--purple)}
+.sw-gray{background:var(--gray-light);border-color:var(--gray)}
+.sw-red{background:var(--red-light);border-color:var(--red)}
+
+.flow{display:flex;flex-direction:column;align-items:center;gap:0}
+
+.arrow{display:flex;flex-direction:column;align-items:center;color:var(--arrow);line-height:1}
+.arrow svg{display:block}
+.arrow-label{font-size:.72rem;color:var(--gray);margin:2px 0;font-family:var(--font-mono)}
+
+.node{position:relative;width:100%;max-width:820px;border-radius:var(--radius);box-shadow:var(--shadow);transition:box-shadow .2s;overflow:hidden;margin:0}
+.node:hover{box-shadow:var(--shadow-lg)}
+.node-header{display:flex;align-items:center;gap:.6rem;padding:.7rem 1rem;cursor:pointer;user-select:none;font-weight:600;font-size:.92rem;border-bottom:1px solid transparent}
+.node-header .badge{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:.15rem .45rem;border-radius:3px;white-space:nowrap}
+.node-header .stations{font-family:var(--font-mono);font-size:.72rem;font-weight:500;color:var(--gray);background:#fff8;padding:.1rem .4rem;border-radius:3px;margin-left:.3rem;border:1px solid #fff5}
+.node-header .typesig{font-family:var(--font-mono);font-size:.7rem;font-weight:500;color:#6d28d9;background:#fff;padding:.1rem .4rem;border-radius:3px;margin-left:.3rem;border:1px solid #c4b5fd;white-space:nowrap}
+.node-header .typesig.cmp{color:#1d4ed8;border-color:#93c5fd}
+.node-header .typesig.cmb{color:#b91c1c;border-color:#fca5a5}
+.node-header .typesig.trb{color:#0f766e;border-color:#5eead4}
+.node-header .typesig.hx{color:#c2410c;border-color:#fdba74}
+.node-header .typesig.noz{color:#15803d;border-color:#86efac}
+.node-header .typesig.gry{color:#475569;border-color:#cbd5e1}
+.node-header .toggle{margin-left:auto;font-size:.75rem;opacity:.5;transition:transform .25s}
+.node-header .toggle.open{transform:rotate(90deg)}
+.node-body{display:none;padding:1rem 1.2rem 1.1rem;font-size:.85rem;line-height:1.7;border-top:1px solid rgba(0,0,0,.06);background:#fff}
+.node-body.show{display:block}
+.node-body p{margin-bottom:.6rem}
+.node-body .eq-block{background:#fafbfd;border-left:3px solid var(--blue);padding:.55rem .8rem;margin:.5rem 0;border-radius:0 var(--radius) var(--radius) 0;overflow-x:auto}
+.node-body .eq-block.green-eq{border-left-color:var(--green)}
+.node-body .eq-block.orange-eq{border-left-color:var(--orange)}
+.node-body .eq-block.teal-eq{border-left-color:var(--teal)}
+.node-body .eq-block.purple-eq{border-left-color:var(--purple)}
+.node-body .eq-block.red-eq{border-left-color:var(--red)}
+.node-body .eq-block.gray-eq{border-left-color:var(--gray)}
+.node-body .source-block{background:#1c2127;color:#e8e6df;font-family:var(--font-mono);font-size:.78rem;line-height:1.55;padding:.7rem .9rem;border-radius:6px;margin:.5rem 0;overflow-x:auto;white-space:pre}
+.node-body .source-block .ln{color:#7c8694;display:inline-block;width:2.4em;text-align:right;margin-right:.8em;user-select:none}
+/* Line highlight inside any source-block: wrap the full line (incl. its .ln span)
+   in <span class="hl">…</span> to mark the line(s) the surrounding prose discusses. */
+.source-block .hl{background:rgba(234,179,8,.16);display:inline-block;min-width:100%;border-radius:2px;box-shadow:inset 2px 0 0 #eab308}
+.node-body .ref{font-size:.78rem;color:var(--gray);margin-top:.6rem}
+.node-body .ref a{color:var(--gray);text-decoration:underline;text-decoration-style:dotted}
+.node-body .ref a:hover{color:var(--blue)}
+.node-body code{font-family:var(--font-mono);font-size:.8rem;background:#eef2ff;padding:.1rem .35rem;border-radius:3px}
+.node-body ul{margin:.3rem 0 .5rem 1.2rem}
+.node-body li{margin-bottom:.2rem}
+.node-body .reads-writes{display:grid;grid-template-columns:auto 1fr;gap:.3rem 1rem;font-size:.8rem;background:#f8fafc;padding:.55rem .8rem;border-radius:6px;margin:.5rem 0}
+.node-body .reads-writes .rw-label{color:var(--gray);font-weight:600;font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;padding-top:2px}
+
+/* Color themes for nodes */
+.node-config{background:#fff;border:1.5px solid var(--gray-border)}
+.node-config .node-header{color:var(--gray)}
+.node-config .badge{background:var(--gray-light);color:var(--gray)}
+
+.node-blue{background:var(--blue-light);border:1.5px solid var(--blue-border)}
+.node-blue .node-header{color:var(--blue)}
+.node-blue .badge{background:#bfdbfe;color:#1d4ed8}
+
+.node-green{background:var(--green-light);border:1.5px solid var(--green-border)}
+.node-green .node-header{color:var(--green)}
+.node-green .badge{background:#bbf7d0;color:#15803d}
+
+.node-orange{background:var(--orange-light);border:1.5px solid var(--orange-border)}
+.node-orange .node-header{color:var(--orange)}
+.node-orange .badge{background:#fed7aa;color:#c2410c}
+
+.node-teal{background:var(--teal-light);border:1.5px solid var(--teal-border)}
+.node-teal .node-header{color:var(--teal)}
+.node-teal .badge{background:#99f6e4;color:#0f766e}
+
+.node-purple{background:var(--purple-light);border:1.5px solid var(--purple-border)}
+.node-purple .node-header{color:var(--purple)}
+.node-purple .badge{background:#c4b5fd;color:#6d28d9}
+
+.node-red{background:var(--red-light);border:1.5px solid var(--red-border)}
+.node-red .node-header{color:var(--red)}
+.node-red .badge{background:#fecaca;color:#b91c1c}
+
+.node-output{background:#fff;border:2px solid var(--purple-border)}
+.node-output .node-header{color:var(--purple)}
+.node-output .badge{background:var(--purple-light);color:var(--purple)}
+
+.node-decision{background:#fff;border:1.5px dashed var(--gray-border);max-width:600px}
+.node-decision .node-header{color:var(--gray);font-size:.85rem;cursor:default}
+.node-decision .node-header .toggle{display:none}
+.node-decision .node-body{display:block;border-top:none;padding:.4rem 1.2rem .8rem;font-size:.82rem;background:transparent}
+
+/* Loop wrappers */
+.loop-wrapper{width:100%;max-width:880px;border:2px dashed var(--blue-border);border-radius:12px;padding:1.2rem .9rem 1rem;position:relative;margin:0;background:linear-gradient(180deg,#eff6ff10 0%,transparent 80px)}
+.loop-label{position:absolute;top:-13px;left:24px;background:var(--bg);padding:.05rem .55rem;font-size:.78rem;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.05em}
+.loop-label .cond{font-family:var(--font-mono);text-transform:none;background:#fff;padding:.05rem .35rem;border-radius:3px;margin-left:.3rem;border:1px solid var(--blue-border);color:#1d4ed8}
+.loop-inner{display:flex;flex-direction:column;align-items:center;gap:0}
+.loop-feedback{font-size:.78rem;color:var(--blue);text-align:center;padding:.4rem 0;font-family:var(--font-mono)}
+
+/* Nested (micro) wrapper for sub-flows: green by default */
+.micro-wrapper{width:100%;max-width:830px;border:2px dashed var(--green-border);border-radius:12px;padding:1.2rem .7rem 1rem;position:relative;margin:0;background:linear-gradient(180deg,#dcfce710 0%,transparent 80px)}
+.micro-label{position:absolute;top:-13px;left:24px;background:var(--green-light);padding:.05rem .55rem;font-size:.75rem;font-weight:700;color:var(--green);text-transform:uppercase;letter-spacing:.05em;border:1px solid var(--green-border);border-radius:3px}
+.micro-inner{display:flex;flex-direction:column;align-items:center;gap:0}
+
+/* Sidebar callout (e.g. "alternative branch") */
+.sidebar-callout{width:100%;max-width:820px;margin:1.5rem 0 0;padding:1rem 1.2rem;background:#fff;border:1.5px solid var(--teal-border);border-left:5px solid var(--teal);border-radius:var(--radius);box-shadow:var(--shadow)}
+.sidebar-callout h3{font-size:.95rem;color:var(--teal);margin-bottom:.4rem;display:flex;align-items:center;gap:.4rem}
+.sidebar-callout h3 .badge{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:.15rem .45rem;border-radius:3px;background:var(--teal-light);color:var(--teal)}
+.sidebar-callout p{font-size:.85rem;margin-bottom:.5rem}
+.sidebar-callout .eq-block{background:#fafbfd;border-left:3px solid var(--teal);padding:.5rem .8rem;margin:.5rem 0;border-radius:0 6px 6px 0;font-size:.85rem}
+.sidebar-callout .source-block{background:#1c2127;color:#e8e6df;font-family:var(--font-mono);font-size:.78rem;line-height:1.55;padding:.7rem .9rem;border-radius:6px;margin:.5rem 0;overflow-x:auto;white-space:pre}
+.sidebar-callout .source-block .ln{color:#7c8694;display:inline-block;width:2.4em;text-align:right;margin-right:.8em;user-select:none}
+.sidebar-callout .ref{font-size:.78rem;color:var(--gray);margin-top:.5rem}
+.sidebar-callout .ref a{color:var(--gray)}
+
+/* Optional inline schematic SVG (overview / domain map) */
+.station-schematic{margin:1.2rem 0 .5rem;background:#fff;border-radius:var(--radius);box-shadow:var(--shadow);padding:.8rem}
+.station-schematic .schem-title{font-size:.85rem;font-weight:600;color:var(--fg);text-align:center;margin-bottom:.4rem}
+.station-schematic svg{display:block;margin:0 auto;max-width:100%}
+.svg-container{display:flex;justify-content:center;margin:.6rem 0}
+.svg-container svg{max-width:100%}
+
+/* Type-detail cards (typically rendered below a types panel SVG).
+   Click-to-expand bodies use the same toggle() function as flow nodes. */
+.types-detail{margin:.4rem 0 1rem;display:grid;grid-template-columns:1fr 1fr;gap:.5rem}
+@media(max-width:680px){.types-detail{grid-template-columns:1fr}}
+.type-card{background:#fff;border:1.5px solid var(--gray-border);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+.type-card.tc-state-purple{border-color:var(--purple-border);border-left:4px solid var(--purple)}
+.type-card.tc-state-blue{border-color:var(--blue-border);border-left:4px solid var(--blue)}
+.type-card.tc-state-green{border-color:var(--green-border);border-left:4px solid var(--green)}
+.type-card.tc-cmp-blue{border-color:var(--blue-border);border-left:4px solid var(--blue)}
+.type-card.tc-cmb-red{border-color:var(--red-border);border-left:4px solid var(--red)}
+.type-card.tc-trb-teal{border-color:var(--teal-border);border-left:4px solid var(--teal)}
+.type-card.tc-noz-green{border-color:var(--green-border);border-left:4px solid var(--green)}
+.type-card.tc-inl-green{border-color:var(--green-border);border-left:4px solid var(--green)}
+.type-card.tc-shf-gray{border-color:var(--gray-border);border-left:4px solid var(--gray)}
+.type-card.tc-hx-orange{border-color:var(--orange-border);border-left:4px solid var(--orange)}
+.type-header{display:flex;align-items:center;gap:.5rem;padding:.55rem .8rem;cursor:pointer;user-select:none;font-size:.84rem;font-weight:600}
+.type-header .type-badge{font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;padding:.1rem .4rem;border-radius:3px;white-space:nowrap}
+.type-header .type-badge.state-b{background:var(--purple-light);color:var(--purple)}
+.type-header .type-badge.cmp-b{background:#bfdbfe;color:#1d4ed8}
+.type-header .type-badge.cmb-b{background:#fecaca;color:#b91c1c}
+.type-header .type-badge.trb-b{background:#99f6e4;color:#0f766e}
+.type-header .type-badge.noz-b{background:#bbf7d0;color:#15803d}
+.type-header .type-badge.inl-b{background:#bbf7d0;color:#15803d}
+.type-header .type-badge.shf-b{background:var(--gray-light);color:var(--gray)}
+.type-header .type-badge.hx-b{background:#fed7aa;color:#c2410c}
+.type-header .type-name{font-family:var(--font-mono);color:var(--fg)}
+.type-header .type-meta{margin-left:auto;font-size:.7rem;font-weight:400;color:var(--gray)}
+.type-header .type-toggle{font-size:.7rem;opacity:.5;transition:transform .25s}
+.type-header .type-toggle.open{transform:rotate(90deg)}
+.type-body{display:none;padding:.6rem .9rem .8rem;font-size:.8rem;line-height:1.6;border-top:1px solid rgba(0,0,0,.06);background:#fafbfd}
+.type-body.show{display:block}
+.type-body p{margin-bottom:.4rem}
+.type-body .type-section{margin-top:.5rem;font-size:.7rem;text-transform:uppercase;letter-spacing:.06em;color:var(--gray);font-weight:700}
+.type-body .field-list{font-family:var(--font-mono);font-size:.74rem;line-height:1.55;color:#374151;background:#fff;padding:.4rem .6rem;border-radius:4px;border:1px solid #e5e7eb;white-space:pre;overflow-x:auto;margin:.25rem 0}
+.type-body .migration{background:#fffbeb;border-left:3px solid #f59e0b;padding:.4rem .6rem;border-radius:0 4px 4px 0;margin:.4rem 0;font-size:.78rem}
+.type-body .migration .check{color:#15803d;font-weight:700}
+.type-body .migration .cross{color:#b91c1c;font-weight:700}
+.type-body .migration .arrow{color:#1d4ed8;font-weight:700}
+.type-body code{font-family:var(--font-mono);font-size:.75rem;background:#eef2ff;padding:.05rem .3rem;border-radius:3px}
+.type-body .ref{font-size:.72rem;color:var(--gray);margin-top:.4rem}
+.type-body .ref a{color:var(--gray);text-decoration:underline;text-decoration-style:dotted}
+
+/* Migration callout used inside flow-node bodies (when typed wrapper exists but the
+   sizing/runtime call site uses an inline form — dual-citation pattern). */
+.node-body .migration-callout{background:#fffbeb;border-left:3px solid #f59e0b;padding:.5rem .8rem;border-radius:0 4px 4px 0;margin:0 0 .8rem;font-size:.82rem}
+.node-body .migration-callout strong{color:#b45309}
+
+/* Side-by-side equation/source pairs — uses width on wide screens, falls back to stacked.
+   Wrap a <div class="eq-block"> next to a <pre class="source-block"> in <div class="pair">.
+   .pair-source pairs two source-blocks (e.g. inline form vs. typed wrapper). */
+.node-body .pair{display:grid;grid-template-columns:1fr;gap:0;margin:.5rem 0;align-items:stretch}
+@media(min-width:920px){.node-body .pair{grid-template-columns:1fr 1fr;gap:.6rem}}
+.node-body .pair > .eq-block,.node-body .pair > .source-block{margin:0;height:100%}
+.node-body .pair-source{display:grid;grid-template-columns:1fr;gap:.5rem;margin:.5rem 0}
+@media(min-width:920px){.node-body .pair-source{grid-template-columns:1fr 1fr;gap:.6rem}}
+.node-body .pair-source > .source-block{margin:0;height:100%}
+.node-body .pair-source-labels{display:grid;grid-template-columns:1fr;gap:.5rem;font-size:.74rem;color:var(--gray);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin:.5rem 0 -.2rem}
+@media(min-width:920px){.node-body .pair-source-labels{grid-template-columns:1fr 1fr;gap:.6rem}}
+
+/* ===== Comparison step-lanes (components/comparison.md) =====
+   Grid: one narrow row-label column + one column per implementation (≤3).
+   Each cell holds a mini flow-node (same .node markup, full cell width),
+   an .absent placeholder, or a bench / capability cell. Rows align by
+   conceptual step; row height follows the tallest expanded cell. */
+.lane-grid{display:grid;gap:.55rem .65rem;margin:1.2rem 0;align-items:stretch;width:100%}
+.lane-grid.cols-2{grid-template-columns:128px repeat(2,1fr)}
+.lane-grid.cols-3{grid-template-columns:128px repeat(3,1fr)}
+.lane-head{position:sticky;top:.4rem;z-index:5;background:#fff;border:1.5px solid var(--gray-border);border-top:4px solid var(--gray);border-radius:var(--radius);box-shadow:var(--shadow);padding:.55rem .7rem;text-align:center}
+.lane-head.lh-blue{border-top-color:var(--blue)}
+.lane-head.lh-green{border-top-color:var(--green)}
+.lane-head.lh-red{border-top-color:var(--red)}
+.lane-head.lh-teal{border-top-color:var(--teal)}
+.lane-head.lh-purple{border-top-color:var(--purple)}
+.lane-head .lh-name{font-family:var(--font-mono);font-weight:700;font-size:.88rem}
+.lane-head .lh-sub{font-size:.68rem;color:var(--gray);margin-top:.1rem;line-height:1.4}
+.lane-head .lh-sub a{color:var(--gray);text-decoration:underline;text-decoration-style:dotted}
+.lane-row-label{font-size:.72rem;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.05em;text-align:right;padding:.55rem .35rem 0 0;cursor:pointer;user-select:none}
+.lane-row-label:hover{color:var(--blue)}
+.lane-row-label .row-note{display:block;font-weight:400;text-transform:none;letter-spacing:0;font-size:.68rem;color:var(--gray);opacity:.85;margin-top:.15rem}
+.lane-cell{min-width:0}
+.lane-cell .node{max-width:none;width:100%}
+.lane-cell .node-header{font-size:.82rem;padding:.55rem .7rem}
+.lane-cell.absent{border:1.5px dashed var(--gray-border);border-radius:var(--radius);display:flex;align-items:center;justify-content:center;text-align:center;color:var(--gray);font-size:.76rem;padding:.7rem .8rem;background:repeating-linear-gradient(45deg,transparent,transparent 8px,#f1f5f922 8px,#f1f5f922 16px)}
+/* Compact loop chip for iteration inside a lane cell — links to the verbatim
+   condition without a full loop-wrapper. Body of the cell still quotes the
+   termination test per core_protocol.md. */
+.loop-chip{display:inline-flex;align-items:center;gap:.3rem;font-family:var(--font-mono);font-size:.68rem;color:#1d4ed8;background:#eff6ff;border:1px dashed var(--blue-border);border-radius:4px;padding:.1rem .4rem;margin-left:.3rem;white-space:nowrap}
+.loop-chip::before{content:'↻';font-weight:700}
+/* Benchmark / capability lane cells */
+.lane-cell.bench{background:#fff;border:1.5px solid var(--gray-border);border-radius:var(--radius);box-shadow:var(--shadow);padding:.55rem .7rem;text-align:center}
+.lane-cell.bench .bench-num{font-family:var(--font-mono);font-size:1.05rem;font-weight:700}
+.lane-cell.bench .bench-sub{font-size:.68rem;color:var(--gray);margin-top:.1rem}
+.lane-cell.bench .speedup{display:inline-block;font-family:var(--font-mono);font-size:.7rem;font-weight:700;background:var(--green-light);color:#15803d;border-radius:4px;padding:.05rem .4rem;margin-left:.3rem}
+.cap-yes{color:#15803d;font-weight:700}
+.cap-no{color:#b91c1c;font-weight:700}
+@media(max-width:920px){
+  .lane-grid.cols-2,.lane-grid.cols-3{grid-template-columns:1fr}
+  .lane-row-label{text-align:left;padding:.9rem 0 0;border-top:1px dashed var(--gray-border);margin-top:.4rem}
+  .lane-head{position:static}
+}
+@media print{.lane-head{position:static}}
+
+/* ===== Computed-evidence figure (components/evidence.md) =====
+   Inline SVG generated by a saved evidence script; caption carries the claim,
+   the script-computed statistic, and full provenance (script, command, SHA). */
+.evidence-figure{margin:1.5rem auto;width:100%;max-width:880px;background:#fff;border:1.5px solid var(--gray-border);border-radius:var(--radius);box-shadow:var(--shadow);padding:1rem 1.2rem}
+.evidence-figure .fig-title{font-weight:600;font-size:.92rem;margin-bottom:.5rem}
+.evidence-figure .fig-svg{display:flex;justify-content:center;overflow-x:auto}
+.evidence-figure .fig-svg svg{max-width:100%;height:auto}
+.evidence-figure .fig-claim{font-size:.85rem;margin:.6rem 0 .2rem}
+.evidence-figure .fig-stat{font-family:var(--font-mono);font-size:.78rem;background:var(--green-light);color:#15803d;display:inline-block;padding:.15rem .5rem;border-radius:4px;margin:.25rem 0}
+.evidence-figure .fig-provenance{font-size:.7rem;color:var(--gray);font-family:var(--font-mono);margin-top:.55rem;border-top:1px dashed var(--gray-border);padding-top:.5rem;line-height:1.7;word-break:break-all}
+.evidence-figure .fig-provenance a{color:var(--gray);text-decoration:underline;text-decoration-style:dotted}
+
+/* ===== Evaluation-report components (components/evaluation.md) ===== */
+.hero-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.6rem;margin:1.2rem 0;width:100%}
+.hero-metric{background:#0f172a;color:#e2e8f0;border-radius:var(--radius);padding:.8rem .6rem;text-align:center}
+.hero-metric .hm-value{font-family:var(--font-mono);font-size:1.3rem;font-weight:700;color:#22d3ee}
+.hero-metric .hm-label{font-size:.68rem;text-transform:uppercase;letter-spacing:.05em;opacity:.8;margin-top:.25rem}
+.card-grid{display:grid;gap:.6rem;margin:1rem 0;width:100%}
+.card-grid.g2{grid-template-columns:1fr 1fr}
+.card-grid.g3{grid-template-columns:1fr 1fr 1fr}
+.card-grid.g4{grid-template-columns:repeat(4,1fr)}
+@media(max-width:720px){.card-grid.g2,.card-grid.g3,.card-grid.g4{grid-template-columns:1fr}}
+.eval-card{background:#fff;border:1.5px solid var(--gray-border);border-left:4px solid var(--gray);border-radius:var(--radius);padding:.8rem 1rem;box-shadow:var(--shadow);font-size:.84rem;line-height:1.6}
+.eval-card h4{font-size:.82rem;margin-bottom:.3rem}
+.eval-card.c-green{border-left-color:var(--green)}
+.eval-card.c-red{border-left-color:var(--red)}
+.eval-card.c-blue{border-left-color:var(--blue)}
+.eval-card.c-teal{border-left-color:var(--teal)}
+.eval-card.c-purple{border-left-color:var(--purple)}
+.eval-card.c-amber{border-left-color:#f59e0b}
+.eval-table{width:100%;border-collapse:collapse;font-size:.82rem;margin:.8rem 0;background:#fff;box-shadow:var(--shadow);border-radius:var(--radius);overflow:hidden}
+.eval-table th,.eval-table td{padding:.45rem .65rem;border:1px solid var(--gray-border);text-align:left;vertical-align:top}
+.eval-table th{background:var(--gray-light);font-size:.7rem;text-transform:uppercase;letter-spacing:.05em;color:var(--gray)}
+.eval-table td.num{font-family:var(--font-mono);text-align:right;white-space:nowrap}
+
+/* ===== Floating left-rail TOC =====
+   Fixed-position navigation that doesn't scroll with the page. Shown only on
+   wide viewports (≥1500 px) where the centered container leaves margin for it. */
+.toc-rail{position:fixed;top:1rem;left:1rem;width:230px;max-height:calc(100vh - 2rem);overflow-y:auto;background:#fff;border:1px solid var(--gray-border);border-radius:var(--radius);box-shadow:var(--shadow);padding:.8rem .7rem;font-size:.74rem;line-height:1.4;z-index:10;transform:translateX(-115%);opacity:0;pointer-events:none;transition:transform .18s ease,opacity .18s ease}
+.toc-rail.open{transform:translateX(0);opacity:1;pointer-events:auto}
+/* Toggle button — always visible at top-left. Slides right when rail opens.
+   Default state set in JS: open on viewports ≥1500px, closed on narrower. */
+.toc-toggle{position:fixed;top:1rem;left:1rem;width:36px;height:36px;background:#fff;border:1px solid var(--gray-border);border-radius:6px;box-shadow:var(--shadow);cursor:pointer;z-index:11;display:flex;align-items:center;justify-content:center;font-size:15px;color:var(--gray);padding:0;transition:left .18s ease,color .15s ease,border-color .15s ease,box-shadow .15s ease}
+.toc-toggle::before{content:'☰';line-height:1;font-weight:600}
+.toc-toggle.open{left:calc(1rem + 230px + .4rem);color:var(--blue);border-color:var(--blue-border)}
+.toc-toggle.open::before{content:'✕';font-size:13px}
+.toc-toggle:hover{color:var(--blue);border-color:var(--blue);box-shadow:var(--shadow-lg)}
+.toc-toggle:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+@media print{.toc-toggle{display:none}}
+.toc-rail .toc-title{font-size:.62rem;text-transform:uppercase;letter-spacing:.08em;color:var(--gray);font-weight:700;margin:0 0 .2rem;padding:0 .35rem}
+.toc-rail .toc-section{margin-top:.6rem;padding-top:.5rem;border-top:1px solid var(--gray-border)}
+.toc-rail .toc-section:first-of-type{margin-top:0;padding-top:0;border-top:none}
+.toc-rail .toc-section-label{font-size:.62rem;text-transform:uppercase;letter-spacing:.08em;color:var(--gray);font-weight:700;margin:0 0 .25rem;padding:0 .35rem;display:flex;align-items:center;gap:.3rem}
+.toc-rail .toc-section-label .toc-badge{font-size:.55rem;background:var(--gray-light);color:var(--gray);padding:.05rem .3rem;border-radius:2px;font-weight:600}
+.toc-rail ul{list-style:none;margin:0;padding:0}
+.toc-rail li{margin:0}
+.toc-rail a{display:block;color:var(--fg);text-decoration:none;padding:.18rem .45rem;border-radius:3px;border-left:2px solid transparent;transition:background .1s,color .1s,border-color .1s;font-size:.72rem}
+.toc-rail a:hover{background:var(--gray-light);color:var(--blue)}
+.toc-rail a.active{background:var(--blue-light);color:var(--blue);border-left-color:var(--blue);font-weight:600}
+.toc-rail a .toc-marker{display:inline-block;width:.6rem;color:var(--gray);font-family:var(--font-mono);font-size:.62rem;margin-right:.15rem}
+.toc-rail .toc-loop{margin:.3rem 0 .15rem;font-size:.66rem;text-transform:uppercase;letter-spacing:.05em;color:var(--blue);font-weight:700;padding:.15rem .35rem;background:#eff6ff;border-left:2px solid var(--blue);border-radius:0 3px 3px 0}
+.toc-rail .toc-micro{margin:.25rem 0 .1rem;font-size:.64rem;text-transform:uppercase;letter-spacing:.05em;color:var(--red);font-weight:700;padding:.1rem .35rem;background:#fef2f2;border-left:2px solid var(--red);border-radius:0 3px 3px 0}
+.toc-rail .toc-nested{padding-left:.9rem;border-left:1px dashed var(--gray-border);margin-left:.4rem}
+.toc-rail .toc-nested-2{padding-left:.7rem;border-left:1px dashed var(--red-border);margin-left:.4rem}
+.toc-rail::-webkit-scrollbar{width:6px}
+.toc-rail::-webkit-scrollbar-thumb{background:var(--gray-border);border-radius:3px}
+@media print{.toc-rail{display:none}}
+
+@media(max-width:680px){
+  .header{padding:1.5rem 1rem}
+  .header h1{font-size:1.4rem}
+  .container{padding:1rem .8rem 2rem}
+  .node-header{font-size:.84rem;padding:.6rem .7rem}
+  .node-body{padding:.8rem .7rem}
+}
+@media print{
+  .header{break-after:avoid}
+  .node-body{display:block!important}
+  .toggle{display:none}
+  .loop-wrapper,.micro-wrapper{page-break-inside:avoid}
+  body{font-size:11pt}
+}
+
+.footer{margin:2rem auto 0;max-width:900px;background:#fff;border:1px solid var(--gray-border);border-radius:var(--radius);box-shadow:var(--shadow);padding:1rem 1.2rem;font-size:.82rem;color:#475569;line-height:1.6}
+.footer p{margin-bottom:.5rem}.footer strong{color:#1a1a2e}.footer ul{list-style:none}
+.wt{font-family:var(--font-mono);font-size:.9em;color:#b45309;background:#fffbeb;padding:.03rem .3rem;border-radius:3px;border:1px solid #fde68a;white-space:nowrap}
+.lh-sub .wt{font-size:.95em}
+</style>
+</head>
+<body>
+
+<!-- TOC_RAIL_OPTIONAL -->
+
+<!-- ============================================================ -->
+<!-- HEADER                                                        -->
+<!-- ============================================================ -->
+<div class="header">
+  <h1>The pure flow layer: Mach state-setting &amp; isentropic efficiency</h1>
+  <p class="subtitle">Setting a GasState from a Mach number, and specifying a turbomachine by isentropic efficiency — the legacy mutable path beside its zero-allocation, enthalpy-exact pure replacement, with the real code run to back every claim.</p>
+  <p class="meta">branch <a href="https://github.mit.edu/prash/Gas.jl/tree/cleanup_arch">cleanup_arch</a> · new flow layer = working tree (uncommitted) · legacy pinned @133180c · 2026-06-15</p>
+</div>
+
+<div class="container">
+
+<!-- LEGEND_OPTIONAL -->
+
+<!-- SCHEMATIC_OPTIONAL -->
+
+<!-- TYPES_PANEL_OPTIONAL -->
+
+<div class="legend">
+  <div class="legend-item"><span class="legend-swatch sw-red"></span> Legacy mutable path — <code>Gas1D</code> + <code>gas_Mach!</code> (turbo.jl) + constant-γ <code>FlowStations</code></div>
+  <div class="legend-item"><span class="legend-swatch sw-green"></span> New pure flow layer — <code>speed_of_sound</code> / <code>stagnation_state</code> / <code>static_state</code> over <code>FrozenGas</code>·<code>GasState</code></div>
+  <div class="legend-item"><span class="legend-swatch sw-blue"></span> derived quantity (pressure rail / second curve)</div>
+</div>
+
+<p style="font-size:.86rem;color:#475569;max-width:880px;margin:.2rem auto 1rem;line-height:1.65">
+The new <code>flow.jl</code> answers the two questions the legacy stateful layer could but the pure
+core could not: <strong>set the gas state from a Mach number</strong>, and <strong>specify a
+turbomachine by isentropic efficiency</strong>. Each row below puts the legacy operation beside its
+pure replacement; the three figures <em>run the real code</em> to back the exactness, speed, and
+convention claims. Click any row label (or a node header) to expand the verbatim source behind both cells.
+</p>
+
+<div class="lane-grid cols-2">
+
+  <!-- header row -->
+  <div></div>
+  <div class="lane-head lh-red">
+    <div class="lh-name">legacy mutable</div>
+    <div class="lh-sub">Gas1D cache · gas_Mach! · constant-γ<br>
+      <a href="https://github.mit.edu/prash/Gas.jl/blob/133180c030a137d3f638c6669c02169ce8e77f0f/src/Gas1D.jl#L6-L18">src/Gas1D.jl:L6</a></div>
+  </div>
+  <div class="lane-head lh-green">
+    <div class="lh-name">new pure flow</div>
+    <div class="lh-sub">FrozenGas property + GasState value<br>
+      <a href="https://github.mit.edu/prash/Gas.jl/blob/133180c030a137d3f638c6669c02169ce8e77f0f/src/gasstate.jl#L33-L37">src/gasstate.jl:L33</a> · <span class="wt">flow.jl (working tree)</span></div>
+  </div>
+
+  <!-- ===== STEP: speed of sound ===== -->
+  <div class="lane-row-label" onclick="expandRow('sos-red,sos-green')">Speed of sound
+    <span class="row-note">a = √(γRT)</span></div>
+  <div class="lane-cell">
+    <div class="node node-red">
+      <div class="node-header" onclick="toggle('sos-red')"><span class="badge">legacy</span> implicit — needs gas.γ at T<span class="toggle" id="toggle-sos-red">&#9654;</span></div>
+      <div class="node-body" id="body-sos-red">
+        <p>No speed-of-sound function. The legacy flow code reads <code>gas.γ</code> off the mutable
+        cache (valid only after <code>gas.T</code> has been set) inside the constant-γ ratios.</p>
+        <pre class="source-block"><span class="ln">L3</span>mutable struct FlowStation
+<span class="ln">L7</span>    V::Float64  # Velocity, Ma*a = Ma*√(γRT)
+<span class="ln">L20</span>function isenTR(gas::AbstractGas, Ma)
+<span class="ln">L21</span>    1 + 0.5 * (gas.γ - 1) * Ma^2</pre>
+        <p class="ref">⚠ <code>src/FlowStations.jl</code> is <strong>untracked scratch</strong>
+        (git-ignored, never <code>include</code>d in the module) — no permalink. Lines are
+        working-tree.</p>
+      </div>
+    </div>
+  </div>
+  <div class="lane-cell">
+    <div class="node node-green">
+      <div class="node-header" onclick="toggle('sos-green')"><span class="badge">new</span> speed_of_sound(gas, T)<span class="toggle" id="toggle-sos-green">&#9654;</span></div>
+      <div class="node-body" id="body-sos-green">
+        <p>A pure property of <code>(gas, T)</code> — composition and temperature are all it needs,
+        no pressure, no state. Mirrors <code>cp</code>/<code>gamma</code>; forwards through
+        <code>FastFrozenGas</code>; has a <code>GasState</code> accessor.</p>
+        <div class="eq-block green-eq">$$ a(\text{gas}, T) = \sqrt{\gamma(\text{gas},T)\,R\,T} $$</div>
+        <pre class="source-block"><span class="ln">L147</span>@inline speed_of_sound(gas::FrozenGas, T) = sqrt(gamma(gas, T) * gas.R * T)</pre>
+        <p class="ref"><span class="wt">src/frozengas.jl:L139-L147 (working tree, uncommitted)</span></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== STEP: total -> static (the gas_Mach! job) ===== -->
+  <div class="lane-row-label" onclick="expandRow('mach-red,mach-green')">Total → static
+    <span class="row-note">the Mach state-set</span></div>
+  <div class="lane-cell">
+    <div class="node node-red">
+      <div class="node-header" onclick="toggle('mach-red')"><span class="badge">legacy</span> gas_Mach!(g, 0, M, 1) <span class="loop-chip">for iter = 1:itmax</span><span class="toggle" id="toggle-mach-red">&#9654;</span></div>
+      <div class="node-body" id="body-mach-red">
+        <p>Mutates a <code>Gas1D</code> in place: Newton on the energy balance
+        <code>h + ½u² = const</code> across the Mach change, pressure folded in at the end with a
+        polytropic <code>ηp</code>. Enthalpy-based — so it is <em>exact</em>, but it allocates and
+        carries an efficiency the reference state shouldn't have.</p>
+        <pre class="source-block"><span class="ln">L85</span>function gas_Mach!(gas::AbstractGas, M0::Float64, M::Float64, ηp::Float64 = 1.0)
+<span class="ln">L99</span>    for iter = 1:itmax
+<span class="ln">L100</span>        set_TP!(gas, t, gas.P) #keep pressure constant for now; will be changed later
+<span class="ln">L108</span>        res = gas.h + 0.5 * usq - h0 - 0.5 * uosq
+<span class="ln">L113</span>        if (abs(dt) &lt; ttol)
+<span class="ln">L114</span>            P = gas.P * exp(ηp * (gas.ϕ - ϕ0) / R0) #calculate pressure with polytropic efficiency</pre>
+        <p>Termination: <code>abs(dt) &lt; ttol</code> (ttol = 1e-6), capped at <code>itmax = 10</code>.</p>
+        <p class="ref"><a href="https://github.mit.edu/prash/Gas.jl/blob/133180c030a137d3f638c6669c02169ce8e77f0f/src/turbo.jl#L85-L121">src/turbo.jl:L85-L121</a></p>
+      </div>
+    </div>
+  </div>
+  <div class="lane-cell">
+    <div class="node node-green">
+      <div class="node-header" onclick="toggle('mach-green')"><span class="badge">new</span> static_state(st, M) <span class="loop-chip">for _ = 1:NEWTON_MAXITER</span><span class="toggle" id="toggle-mach-green">&#9654;</span></div>
+      <div class="node-body" id="body-mach-green">
+        <p>The static state at Mach <code>M</code> whose isentropic stagnation state is <code>st</code>
+        — a new <code>GasState</code>, the input untouched. Same physics as <code>gas_Mach!(·,0,M,1)</code>
+        but pure and zero-allocation; the speed of sound is evaluated at the <em>static</em> T (the
+        Mach number is defined with the local sound speed), so it is a bounded Newton solve.</p>
+        <div class="eq-block green-eq">$$ h(T) + \tfrac{1}{2}\bigl(M\,a(T)\bigr)^2 = h(\text{st}),\qquad a^2 = \gamma R T $$</div>
+        <pre class="source-block"><span class="ln">L69</span>function static_state(st::GasState, M)
+<span class="ln">L79</span>    for _ = 1:NEWTON_MAXITER
+<span class="ln">L84</span>        f = h(gas, T) + halfM2 * γ * Rg * T - ht
+<span class="ln">L86</span>        dT = -f / df
+<span class="ln">L88</span>        if abs(dT) ≤ NEWTON_RTOL * abs(T)
+<span class="ln">L89</span>            Ps = Pt * exp((s0(gas, T) - s0(gas, Tt)) / Rg)</pre>
+        <p>Termination: <code>abs(dT) ≤ NEWTON_RTOL * abs(T)</code> (rtol = 1e-12), capped at
+        <code>NEWTON_MAXITER = 30</code>; errors if not converged.</p>
+        <p class="ref"><span class="wt">src/flow.jl:L56-L94 (working tree, uncommitted)</span></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== STEP: static -> total (stagnation) ===== -->
+  <div class="lane-row-label" onclick="expandRow('stag-red,stag-green')">Static → total
+    <span class="row-note">stagnation reference</span></div>
+  <div class="lane-cell">
+    <div class="node node-red">
+      <div class="node-header" onclick="toggle('stag-red')"><span class="badge">legacy</span> get_static / isenPR — constant-γ<span class="toggle" id="toggle-stag-red">&#9654;</span></div>
+      <div class="node-body" id="body-stag-red">
+        <p>The only stagnation helpers use the <strong>constant-γ</strong> relations
+        <code>1 + ½(γ−1)M²</code> and <code>(…)^(γ/(γ−1))</code> — γ frozen at one temperature. For a
+        thermally-perfect gas those ratios drift with temperature and Mach (the figure below
+        quantifies it).</p>
+        <div class="eq-block red-eq">$$ \frac{T_t}{T} = 1 + \tfrac{1}{2}(\gamma-1)M^2,\qquad \frac{P_t}{P}=\Bigl(\tfrac{T_t}{T}\Bigr)^{\!\gamma/(\gamma-1)} $$</div>
+        <pre class="source-block"><span class="ln">L12</span>function get_static(FS::FlowStation)
+<span class="ln">L13</span>    Ps = FS.gas.P / isenPR(FS.gas, FS.Ma)
+<span class="ln">L14</span>    Ts = FS.gas.T / isenTR(FS.gas, FS.Ma)
+<span class="ln">L27</span>function isenPR(gas::AbstractGas, Ma)
+<span class="ln">L29</span>    isenTR(gas, Ma)^(k)</pre>
+        <p class="ref">⚠ <code>src/FlowStations.jl</code> — untracked, git-ignored scratch; never in the module.</p>
+      </div>
+    </div>
+  </div>
+  <div class="lane-cell">
+    <div class="node node-green">
+      <div class="node-header" onclick="toggle('stag-green')"><span class="badge">new</span> stagnation_state(st, M)<span class="toggle" id="toggle-stag-green">&#9654;</span></div>
+      <div class="node-body" id="body-stag-green">
+        <p>Brings the static flow isentropically to rest using the <em>enthalpy and entropy
+        curves</em> — exact for a thermally-perfect gas. A loss-free reference: it carries no
+        efficiency (a lossy ram composes separately). Closed form: one enthalpy inversion.</p>
+        <div class="eq-block green-eq">$$ h_t = h(T) + \tfrac{1}{2}V^2,\quad V=M a;\qquad P_t = P\,e^{\,(s^0(T_t)-s^0(T))/R} $$</div>
+        <pre class="source-block"><span class="ln">L46</span>function stagnation_state(st::GasState, M)
+<span class="ln">L50</span>    V = M * speed_of_sound(gas, st.T)
+<span class="ln">L51</span>    Tt = T_of_h(gas, h(gas, st.T) + V^2 / 2)
+<span class="ln">L52</span>    Pt = st.P * exp((s0(gas, Tt) - s0(gas, st.T)) / R(gas))
+<span class="ln">L53</span>    GasState(gas, Tt, Pt)</pre>
+        <p class="ref"><span class="wt">src/flow.jl:L31-L54 (working tree, uncommitted)</span></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== STEP: compression with efficiency ===== -->
+  <div class="lane-row-label" onclick="expandRow('comp-red,comp-green')">Compression
+    <span class="row-note">efficiency spec</span></div>
+  <div class="lane-cell">
+    <div class="node node-red">
+      <div class="node-header" onclick="toggle('comp-red')"><span class="badge">legacy</span> compress — polytropic ηp only<span class="toggle" id="toggle-comp-red">&#9654;</span></div>
+      <div class="node-body" id="body-comp-red">
+        <p>The legacy ratio process takes a <strong>polytropic</strong> <code>ηp</code> and nothing
+        else — there is no way to specify a machine by its isentropic efficiency.</p>
+        <pre class="source-block"><span class="ln">L8</span>function PressureRatio(gas::AbstractGas, PR::Float64, ηp::Float64 = 1.0)
+<span class="ln">L15</span>    Tfinal = T0 * PR^(R / gas.cp / ηp)
+<span class="ln">L22</span>    for i = 1:20# abs(dT)>ϵ</pre>
+        <p class="ref"><a href="https://github.mit.edu/prash/Gas.jl/blob/133180c030a137d3f638c6669c02169ce8e77f0f/src/turbo.jl#L8-L49">src/turbo.jl:L8-L49</a></p>
+      </div>
+    </div>
+  </div>
+  <div class="lane-cell">
+    <div class="node node-green">
+      <div class="node-header" onclick="toggle('comp-green')"><span class="badge">new</span> compress(gas, T1, PR; ηp | ηs)<span class="toggle" id="toggle-comp-green">&#9654;</span></div>
+      <div class="node-body" id="body-comp-green">
+        <p>One verb, the loss model chosen by <em>which</em> keyword is given (at most one —
+        <code>ArgumentError</code> if both). <code>ηs</code> degrades the ideal enthalpy rise to the
+        <strong>same</strong> pressure ratio, so both conventions land on <code>P·PR</code>; only the
+        temperature differs.</p>
+        <div class="eq-block green-eq">$$ h(T_2) = h(T_1) + \frac{h(T_{2s}) - h(T_1)}{\eta_s},\qquad T_{2s}=\text{loss-free outlet} $$</div>
+        <pre class="source-block"><span class="ln">L164</span>function compress(gas::PureGas, T1, PR; ηp = nothing, ηs = nothing)
+<span class="ln">L171</span>    _check_one_efficiency(ηp, ηs, "compress")
+<span class="ln">L172</span>    if ηs === nothing
+<span class="ln">L173</span>        T_isentropic(gas, T1, PR; ηp = _resolve_ηp(ηp))
+<span class="ln">L174</span>    else
+<span class="ln">L175</span>        h1 = h(gas, T1)
+<span class="ln">L176</span>        T2s = T_isentropic(gas, T1, PR) # loss-free outlet at this PR
+<span class="ln">L177</span>        T_of_h(gas, h1 + (h(gas, T2s) - h1) / ηs)</pre>
+        <p class="ref"><span class="wt">src/gasstate.jl:L164-L179 (working tree, uncommitted)</span></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== CAPABILITY ROWS ===== -->
+  <div class="lane-row-label">Stagnation / Mach model
+    <span class="row-note">exactness</span></div>
+  <div class="lane-cell bench"><span class="cap-no">✗ constant-γ</span>
+    <div class="bench-sub">1+½(γ−1)M² — drifts to 6.75% (T) by M=3 ↓fig 1</div></div>
+  <div class="lane-cell bench"><span class="cap-yes">✓ enthalpy/entropy exact</span>
+    <div class="bench-sub">reuses the h/s⁰ inversions — agrees with legacy gas_Mach! to 7.9e-10</div></div>
+
+  <div class="lane-row-label">Allocations
+    <span class="row-note">Mach state-set, per call</span></div>
+  <div class="lane-cell bench"><span class="bench-num" style="color:#b91c1c">181</span>
+    <div class="bench-sub">mutable cache churn (gas_Mach!)</div></div>
+  <div class="lane-cell bench"><span class="bench-num" style="color:#15803d">0</span>
+    <div class="bench-sub">isbits GasState — stack only</div></div>
+
+  <div class="lane-row-label">Autodiff ∂/∂M, ∂/∂PR
+    <span class="row-note">ForwardDiff</span></div>
+  <div class="lane-cell bench"><span class="cap-no">✗ blocked</span>
+    <div class="bench-sub">Gas1D fields pinned ::Float64 — <a href="https://github.mit.edu/prash/Gas.jl/blob/133180c030a137d3f638c6669c02169ce8e77f0f/src/Gas1D.jl#L6-L18">Gas1D.jl:L6</a></div></div>
+  <div class="lane-cell bench"><span class="cap-yes">✓ analytic</span>
+    <div class="bench-sub">Duals through T_of_h / T_isentropic IFT rules; static_state on the value rail</div></div>
+
+  <div class="lane-row-label">Efficiency conventions
+    <span class="row-note">compress / expand</span></div>
+  <div class="lane-cell bench"><span class="cap-no">ηp only</span>
+    <div class="bench-sub">polytropic; isentropic spec impossible</div></div>
+  <div class="lane-cell bench"><span class="cap-yes">ηp <em>or</em> ηs</span>
+    <div class="bench-sub">mutually exclusive keyword (ADR-0005) ↓fig 3</div></div>
+
+  <!-- ===== BENCHMARK ROWS ===== -->
+  <div class="lane-row-label">Mach total→static
+    <span class="row-note">median ns; baseline = gas_Mach!</span></div>
+  <div class="lane-cell bench"><span class="bench-num">2709 ns</span>
+    <div class="bench-sub">181 allocs</div></div>
+  <div class="lane-cell bench"><span class="bench-num">552 ns</span><span class="speedup">4.9×</span>
+    <div class="bench-sub">0 allocs</div></div>
+
+  <div class="lane-row-label">Speed of sound
+    <span class="row-note">median ns; baseline = legacy γ-read</span></div>
+  <div class="lane-cell bench"><span class="bench-num">291 ns</span>
+    <div class="bench-sub">9 allocs (set T, read γ)</div></div>
+  <div class="lane-cell bench"><span class="bench-num">6.4 ns</span><span class="speedup">46×</span>
+    <div class="bench-sub">0 allocs</div></div>
+
+</div>
+
+<!-- ============ EVIDENCE FIGURES ============ -->
+
+<div class="evidence-figure" id="fig-mach">
+  <div class="fig-title">Figure 1 — Exactness: the new pair is enthalpy-exact; the legacy constant-γ model drifts</div>
+  <div class="fig-svg"><svg xmlns="http://www.w3.org/2000/svg" width="760" height="538" viewBox="0 0 760 538" font-family="Inter,system-ui,sans-serif"><rect width="760" height="538" fill="#ffffff"/><text x="380.0" y="18" text-anchor="middle" font-size="13" font-weight="700" fill="#1a1a2e">Total → static of dry air at Tt=1000 K, Pt=8 bar: exact vs constant-γ</text><line x1="64" y1="258.9" x2="550" y2="258.9" stroke="#e2e8f0" stroke-width="1"/><text x="58" y="261.9" text-anchor="end" font-size="9.5" fill="#64748b">0</text><line x1="64" y1="216.43" x2="550" y2="216.43" stroke="#e2e8f0" stroke-width="1"/><text x="58" y="219.43" text-anchor="end" font-size="9.5" fill="#64748b">0.2</text><line x1="64" y1="173.96" x2="550" y2="173.96" stroke="#e2e8f0" stroke-width="1"/><text x="58" y="176.96" text-anchor="end" font-size="9.5" fill="#64748b">0.4</text><line x1="64" y1="131.49" x2="550" y2="131.49" stroke="#e2e8f0" stroke-width="1"/><text x="58" y="134.49" text-anchor="end" font-size="9.5" fill="#64748b">0.6</text><line x1="64" y1="89.02" x2="550" y2="89.02" stroke="#e2e8f0" stroke-width="1"/><text x="58" y="92.02" text-anchor="end" font-size="9.5" fill="#64748b">0.8</text><line x1="64" y1="46.55" x2="550" y2="46.55" stroke="#e2e8f0" stroke-width="1"/><text x="58" y="49.55" text-anchor="end" font-size="9.5" fill="#64748b">1</text><line x1="64" y1="30" x2="64" y2="270" stroke="#334155" stroke-width="1.2"/><line x1="64" y1="270" x2="550" y2="270" stroke="#334155" stroke-width="1.2"/><line x1="64.0" y1="270" x2="64.0" y2="274" stroke="#334155" stroke-width="1"/><text x="64.0" y="286" text-anchor="middle" font-size="9.5" fill="#64748b">0</text><line x1="145.0" y1="270" x2="145.0" y2="274" stroke="#334155" stroke-width="1"/><text x="145.0" y="286" text-anchor="middle" font-size="9.5" fill="#64748b">0.5</text><line x1="226.0" y1="270" x2="226.0" y2="274" stroke="#334155" stroke-width="1"/><text x="226.0" y="286" text-anchor="middle" font-size="9.5" fill="#64748b">1</text><line x1="307.0" y1="270" x2="307.0" y2="274" stroke="#334155" stroke-width="1"/><text x="307.0" y="286" text-anchor="middle" font-size="9.5" fill="#64748b">1.5</text><line x1="388.0" y1="270" x2="388.0" y2="274" stroke="#334155" stroke-width="1"/><text x="388.0" y="286" text-anchor="middle" font-size="9.5" fill="#64748b">2</text><line x1="469.0" y1="270" x2="469.0" y2="274" stroke="#334155" stroke-width="1"/><text x="469.0" y="286" text-anchor="middle" font-size="9.5" fill="#64748b">2.5</text><line x1="550.0" y1="270" x2="550.0" y2="274" stroke="#334155" stroke-width="1"/><text x="550.0" y="286" text-anchor="middle" font-size="9.5" fill="#64748b">3</text><text x="14" y="150.0" text-anchor="middle" font-size="10.5" fill="#334155" transform="rotate(-90 14 150.0)">Ts/Tt  and  Ps/Pt</text><polyline points="64.0,46.55 68.05,46.57 72.1,46.64 76.15,46.75 80.2,46.91 84.25,47.11 88.3,47.35 92.35,47.64 96.4,47.97 100.45,48.35 104.5,48.76 108.55,49.22 112.6,49.72 116.65,50.26 120.7,50.85 124.75,51.47 128.8,52.13 132.85,52.83 136.9,53.57 140.95,54.35 145.0,55.16 149.05,56.01 153.1,56.89 157.15,57.81 161.2,58.76 165.25,59.75 169.3,60.76 173.35,61.8 177.4,62.88 181.45,63.98 185.5,65.11 189.55,66.27 193.6,67.45 197.65,68.65 201.7,69.88 205.75,71.13 209.8,72.41 213.85,73.7 217.9,75.01 221.95,76.34 226.0,77.69 230.05,79.06 234.1,80.43 238.15,81.83 242.2,83.24 246.25,84.65 250.3,86.08 254.35,87.53 258.4,88.98 262.45,90.43 266.5,91.9 270.55,93.37 274.6,94.85 278.65,96.33 282.7,97.82 286.75,99.31 290.8,100.81 294.85,102.3 298.9,103.8 302.95,105.29 307.0,106.79 311.05,108.28 315.1,109.77 319.15,111.26 323.2,112.74 327.25,114.22 331.3,115.7 335.35,117.17 339.4,118.64 343.45,120.1 347.5,121.55 351.55,122.99 355.6,124.43 359.65,125.86 363.7,127.28 367.75,128.69 371.8,130.09 375.85,131.48 379.9,132.86 383.95,134.24 388.0,135.6 392.05,136.94 396.1,138.28 400.15,139.61 404.2,140.92 408.25,142.23 412.3,143.52 416.35,144.79 420.4,146.06 424.45,147.31 428.5,148.55 432.55,149.78 436.6,150.99 440.65,152.19 444.7,153.38 448.75,154.56 452.8,155.72 456.85,156.87 460.9,158.0 464.95,159.12 469.0,160.23 473.05,161.33 477.1,162.41 481.15,163.48 485.2,164.54 489.25,165.58 493.3,166.61 497.35,167.63 501.4,168.63 505.45,169.63 509.5,170.61 513.55,171.57 517.6,172.53 521.65,173.47 525.7,174.4 529.75,175.32 533.8,176.23 537.85,177.12 541.9,178.0 545.95,178.88 550.0,179.74" fill="none" stroke="#16a34a" stroke-width="2" /><polyline points="64.0,46.55 68.05,46.57 72.1,46.64 76.15,46.75 80.2,46.91 84.25,47.11 88.3,47.35 92.35,47.64 96.4,47.97 100.45,48.34 104.5,48.76 108.55,49.22 112.6,49.72 116.65,50.26 120.7,50.84 124.75,51.45 128.8,52.11 132.85,52.81 136.9,53.54 140.95,54.31 145.0,55.11 149.05,55.95 153.1,56.83 157.15,57.73 161.2,58.67 165.25,59.63 169.3,60.63 173.35,61.66 177.4,62.71 181.45,63.79 185.5,64.89 189.55,66.02 193.6,67.17 197.65,68.35 201.7,69.55 205.75,70.76 209.8,72.0 213.85,73.25 217.9,74.52 221.95,75.81 226.0,77.11 230.05,78.42 234.1,79.75 238.15,81.09 242.2,82.44 246.25,83.8 250.3,85.17 254.35,86.55 258.4,87.93 262.45,89.32 266.5,90.72 270.55,92.12 274.6,93.52 278.65,94.93 282.7,96.34 286.75,97.76 290.8,99.17 294.85,100.58 298.9,102.0 302.95,103.41 307.0,104.82 311.05,106.23 315.1,107.63 319.15,109.03 323.2,110.43 327.25,111.83 331.3,113.21 335.35,114.6 339.4,115.97 343.45,117.35 347.5,118.71 351.55,120.07 355.6,121.42 359.65,122.76 363.7,124.09 367.75,125.42 371.8,126.74 375.85,128.05 379.9,129.35 383.95,130.64 388.0,131.92 392.05,133.19 396.1,134.45 400.15,135.7 404.2,136.94 408.25,138.18 412.3,139.4 416.35,140.61 420.4,141.8 424.45,142.99 428.5,144.17 432.55,145.34 436.6,146.49 440.65,147.64 444.7,148.77 448.75,149.89 452.8,151.0 456.85,152.1 460.9,153.19 464.95,154.27 469.0,155.34 473.05,156.39 477.1,157.44 481.15,158.47 485.2,159.49 489.25,160.5 493.3,161.5 497.35,162.49 501.4,163.47 505.45,164.44 509.5,165.4 513.55,166.34 517.6,167.28 521.65,168.2 525.7,169.12 529.75,170.02 533.8,170.92 537.85,171.8 541.9,172.67 545.95,173.53 550.0,174.39" fill="none" stroke="#dc2626" stroke-width="2" stroke-dasharray="6 4" /><polyline points="64.0,46.55 68.05,46.64 72.1,46.91 76.15,47.35 80.2,47.96 84.25,48.75 88.3,49.71 92.35,50.84 96.4,52.13 100.45,53.59 104.5,55.2 108.55,56.96 112.6,58.86 116.65,60.91 120.7,63.09 124.75,65.4 128.8,67.84 132.85,70.39 136.9,73.05 140.95,75.81 145.0,78.67 149.05,81.61 153.1,84.63 157.15,87.73 161.2,90.89 165.25,94.12 169.3,97.39 173.35,100.71 177.4,104.06 181.45,107.45 185.5,110.86 189.55,114.28 193.6,117.72 197.65,121.16 201.7,124.59 205.75,128.03 209.8,131.44 213.85,134.84 217.9,138.22 221.95,141.57 226.0,144.89 230.05,148.18 234.1,151.42 238.15,154.62 242.2,157.78 246.25,160.88 250.3,163.94 254.35,166.94 258.4,169.89 262.45,172.77 266.5,175.6 270.55,178.37 274.6,181.07 278.65,183.71 282.7,186.29 286.75,188.81 290.8,191.26 294.85,193.64 298.9,195.96 302.95,198.22 307.0,200.41 311.05,202.54 315.1,204.6 319.15,206.6 323.2,208.54 327.25,210.42 331.3,212.24 335.35,213.99 339.4,215.7 343.45,217.34 347.5,218.93 351.55,220.46 355.6,221.94 359.65,223.36 363.7,224.74 367.75,226.07 371.8,227.35 375.85,228.58 379.9,229.76 383.95,230.9 388.0,232.0 392.05,233.06 396.1,234.08 400.15,235.05 404.2,235.99 408.25,236.9 412.3,237.76 416.35,238.6 420.4,239.4 424.45,240.17 428.5,240.91 432.55,241.62 436.6,242.3 440.65,242.95 444.7,243.58 448.75,244.18 452.8,244.76 456.85,245.32 460.9,245.85 464.95,246.36 469.0,246.85 473.05,247.32 477.1,247.77 481.15,248.2 485.2,248.62 489.25,249.02 493.3,249.4 497.35,249.76 501.4,250.12 505.45,250.45 509.5,250.78 513.55,251.09 517.6,251.38 521.65,251.67 525.7,251.94 529.75,252.21 533.8,252.46 537.85,252.7 541.9,252.93 545.95,253.16 550.0,253.37" fill="none" stroke="#2563eb" stroke-width="2" /><polyline points="64.0,46.55 68.05,46.64 72.1,46.91 76.15,47.35 80.2,47.96 84.25,48.75 88.3,49.71 92.35,50.84 96.4,52.13 100.45,53.58 104.5,55.19 108.55,56.95 112.6,58.85 116.65,60.9 120.7,63.08 124.75,65.38 128.8,67.81 132.85,70.35 136.9,73.0 140.95,75.75 145.0,78.6 149.05,81.53 153.1,84.54 157.15,87.63 161.2,90.77 165.25,93.98 169.3,97.23 173.35,100.53 177.4,103.86 181.45,107.23 185.5,110.61 189.55,114.01 193.6,117.42 197.65,120.84 201.7,124.25 205.75,127.65 209.8,131.05 213.85,134.42 217.9,137.77 221.95,141.09 226.0,144.38 230.05,147.64 234.1,150.86 238.15,154.03 242.2,157.16 246.25,160.25 250.3,163.28 254.35,166.26 258.4,169.18 262.45,172.05 266.5,174.86 270.55,177.61 274.6,180.29 278.65,182.92 282.7,185.49 286.75,187.99 290.8,190.43 294.85,192.81 298.9,195.12 302.95,197.37 307.0,199.56 311.05,201.69 315.1,203.75 319.15,205.76 323.2,207.7 327.25,209.58 331.3,211.41 335.35,213.17 339.4,214.88 343.45,216.54 347.5,218.14 351.55,219.69 355.6,221.18 359.65,222.62 363.7,224.02 367.75,225.36 371.8,226.66 375.85,227.91 379.9,229.11 383.95,230.28 388.0,231.4 392.05,232.47 396.1,233.51 400.15,234.51 404.2,235.47 408.25,236.4 412.3,237.29 416.35,238.15 420.4,238.97 424.45,239.76 428.5,240.52 432.55,241.26 436.6,241.96 440.65,242.63 444.7,243.28 448.75,243.91 452.8,244.5 456.85,245.08 460.9,245.63 464.95,246.16 469.0,246.67 473.05,247.16 477.1,247.63 481.15,248.08 485.2,248.51 489.25,248.92 493.3,249.32 497.35,249.7 501.4,250.06 505.45,250.42 509.5,250.75 513.55,251.07 517.6,251.38 521.65,251.68 525.7,251.97 529.75,252.24 533.8,252.5 537.85,252.75 541.9,252.99 545.95,253.23 550.0,253.45" fill="none" stroke="#64748b" stroke-width="2" stroke-dasharray="6 4" /><line x1="562" y1="36" x2="584" y2="36" stroke="#16a34a" stroke-width="2.4" /><text x="589" y="39.5" font-size="9.5" fill="#1a1a2e">Ts/Tt  exact (static_state)</text><line x1="562" y1="52" x2="584" y2="52" stroke="#dc2626" stroke-width="2.4" stroke-dasharray="6 4" /><text x="589" y="55.5" font-size="9.5" fill="#1a1a2e">Ts/Tt  constant-γ (legacy)</text><line x1="562" y1="68" x2="584" y2="68" stroke="#2563eb" stroke-width="2.4" /><text x="589" y="71.5" font-size="9.5" fill="#1a1a2e">Ps/Pt  exact (static_state)</text><line x1="562" y1="84" x2="584" y2="84" stroke="#64748b" stroke-width="2.4" stroke-dasharray="6 4" /><text x="589" y="87.5" font-size="9.5" fill="#1a1a2e">Ps/Pt  constant-γ (legacy)</text><text x="307.0" y="304" text-anchor="middle" font-size="10.5" fill="#334155">Mach number M</text><line x1="64" y1="494.0" x2="550" y2="494.0" stroke="#e2e8f0" stroke-width="1"/><text x="58" y="497.0" text-anchor="end" font-size="9.5" fill="#64748b">1.0e-16</text><line x1="64" y1="482.83" x2="550" y2="482.83" stroke="#e2e8f0" stroke-width="1"/><text x="58" y="485.83" text-anchor="end" font-size="9.5" fill="#64748b">1.0e-15</text><line x1="64" y1="471.65" x2="550" y2="471.65" stroke="#e2e8f0" stroke-width="1"/><text x="58" y="474.65" text-anchor="end" font-size="9.5" fill="#64748b">1.0e-14</text><line x1="64" y1="460.48" x2="550" y2="460.48" stroke="#e2e8f0" stroke-width="1"/><text x="58" y="463.48" text-anchor="end" font-size="9.5" fill="#64748b">1.0e-13</text><line x1="64" y1="449.3" x2="550" y2="449.3" stroke="#e2e8f0" stroke-width="1"/><text x="58" y="452.3" text-anchor="end" font-size="9.5" fill="#64748b">1.0e-12</text><line x1="64" y1="438.13" x2="550" y2="438.13" stroke="#e2e8f0" stroke-width="1"/><text x="58" y="441.13" text-anchor="end" font-size="9.5" fill="#64748b">1.0e-11</text><line x1="64" y1="426.95" x2="550" y2="426.95" stroke="#e2e8f0" stroke-width="1"/><text x="58" y="429.95" text-anchor="end" font-size="9.5" fill="#64748b">1.0e-10</text><line x1="64" y1="415.78" x2="550" y2="415.78" stroke="#e2e8f0" stroke-width="1"/><text x="58" y="418.78" text-anchor="end" font-size="9.5" fill="#64748b">1.0e-09</text><line x1="64" y1="404.6" x2="550" y2="404.6" stroke="#e2e8f0" stroke-width="1"/><text x="58" y="407.6" text-anchor="end" font-size="9.5" fill="#64748b">1.0e-08</text><line x1="64" y1="393.43" x2="550" y2="393.43" stroke="#e2e8f0" stroke-width="1"/><text x="58" y="396.43" text-anchor="end" font-size="9.5" fill="#64748b">1.0e-07</text><line x1="64" y1="382.25" x2="550" y2="382.25" stroke="#e2e8f0" stroke-width="1"/><text x="58" y="385.25" text-anchor="end" font-size="9.5" fill="#64748b">1.0e-06</text><line x1="64" y1="371.08" x2="550" y2="371.08" stroke="#e2e8f0" stroke-width="1"/><text x="58" y="374.08" text-anchor="end" font-size="9.5" fill="#64748b">1.0e-05</text><line x1="64" y1="359.9" x2="550" y2="359.9" stroke="#e2e8f0" stroke-width="1"/><text x="58" y="362.9" text-anchor="end" font-size="9.5" fill="#64748b">1.0e-04</text><line x1="64" y1="348.73" x2="550" y2="348.73" stroke="#e2e8f0" stroke-width="1"/><text x="58" y="351.73" text-anchor="end" font-size="9.5" fill="#64748b">0.001</text><line x1="64" y1="337.55" x2="550" y2="337.55" stroke="#e2e8f0" stroke-width="1"/><text x="58" y="340.55" text-anchor="end" font-size="9.5" fill="#64748b">0.01</text><line x1="64" y1="326.38" x2="550" y2="326.38" stroke="#e2e8f0" stroke-width="1"/><text x="58" y="329.38" text-anchor="end" font-size="9.5" fill="#64748b">0.1</text><line x1="64" y1="326" x2="64" y2="494" stroke="#334155" stroke-width="1.2"/><line x1="64" y1="494" x2="550" y2="494" stroke="#334155" stroke-width="1.2"/><line x1="64.0" y1="494" x2="64.0" y2="498" stroke="#334155" stroke-width="1"/><text x="64.0" y="510" text-anchor="middle" font-size="9.5" fill="#64748b">0</text><line x1="145.0" y1="494" x2="145.0" y2="498" stroke="#334155" stroke-width="1"/><text x="145.0" y="510" text-anchor="middle" font-size="9.5" fill="#64748b">0.5</text><line x1="226.0" y1="494" x2="226.0" y2="498" stroke="#334155" stroke-width="1"/><text x="226.0" y="510" text-anchor="middle" font-size="9.5" fill="#64748b">1</text><line x1="307.0" y1="494" x2="307.0" y2="498" stroke="#334155" stroke-width="1"/><text x="307.0" y="510" text-anchor="middle" font-size="9.5" fill="#64748b">1.5</text><line x1="388.0" y1="494" x2="388.0" y2="498" stroke="#334155" stroke-width="1"/><text x="388.0" y="510" text-anchor="middle" font-size="9.5" fill="#64748b">2</text><line x1="469.0" y1="494" x2="469.0" y2="498" stroke="#334155" stroke-width="1"/><text x="469.0" y="510" text-anchor="middle" font-size="9.5" fill="#64748b">2.5</text><line x1="550.0" y1="494" x2="550.0" y2="498" stroke="#334155" stroke-width="1"/><text x="550.0" y="510" text-anchor="middle" font-size="9.5" fill="#64748b">3</text><text x="14" y="410.0" text-anchor="middle" font-size="10.5" fill="#334155" transform="rotate(-90 14 410.0)">rel. error vs exact</text><polyline points="64.0,494.0 68.05,414.7 72.1,400.22 76.15,392.3 80.2,386.72 84.25,382.39 88.3,378.86 92.35,375.87 96.4,373.29 100.45,371.02 104.5,368.99 108.55,367.15 112.6,365.48 116.65,363.94 120.7,362.52 124.75,361.2 128.8,359.97 132.85,358.82 136.9,357.73 140.95,356.71 145.0,355.74 149.05,354.82 153.1,353.95 157.15,353.11 161.2,352.32 165.25,351.56 169.3,350.83 173.35,350.13 177.4,349.46 181.45,348.82 185.5,348.19 189.55,347.6 193.6,347.02 197.65,346.46 201.7,345.92 205.75,345.4 209.8,344.9 213.85,344.41 217.9,343.94 221.95,343.48 226.0,343.04 230.05,342.61 234.1,342.19 238.15,341.78 242.2,341.39 246.25,341.0 250.3,340.63 254.35,340.26 258.4,339.91 262.45,339.56 266.5,339.23 270.55,338.9 274.6,338.58 278.65,338.27 282.7,337.97 286.75,337.67 290.8,337.39 294.85,337.11 298.9,336.83 302.95,336.57 307.0,336.31 311.05,336.05 315.1,335.8 319.15,335.56 323.2,335.33 327.25,335.1 331.3,334.87 335.35,334.65 339.4,334.44 343.45,334.23 347.5,334.03 351.55,333.83 355.6,333.64 359.65,333.45 363.7,333.26 367.75,333.08 371.8,332.91 375.85,332.74 379.9,332.57 383.95,332.41 388.0,332.25 392.05,332.09 396.1,331.94 400.15,331.8 404.2,331.65 408.25,331.51 412.3,331.37 416.35,331.24 420.4,331.11 424.45,330.98 428.5,330.86 432.55,330.74 436.6,330.62 440.65,330.51 444.7,330.39 448.75,330.29 452.8,330.18 456.85,330.08 460.9,329.97 464.95,329.88 469.0,329.78 473.05,329.68 477.1,329.59 481.15,329.5 485.2,329.42 489.25,329.33 493.3,329.25 497.35,329.17 501.4,329.09 505.45,329.01 509.5,328.94 513.55,328.86 517.6,328.79 521.65,328.72 525.7,328.66 529.75,328.59 533.8,328.52 537.85,328.46 541.9,328.4 545.95,328.34 550.0,328.28" fill="none" stroke="#dc2626" stroke-width="2" stroke-dasharray="6 4" /><polyline points="64.0,494.0 68.05,406.36 72.1,397.37 76.15,389.91 80.2,384.41 84.25,380.11 88.3,376.59 92.35,373.62 96.4,371.04 100.45,368.78 104.5,366.75 108.55,364.93 112.6,363.27 116.65,361.74 120.7,360.33 124.75,359.03 128.8,357.81 132.85,356.67 136.9,355.6 140.95,354.59 145.0,353.64 149.05,352.74 153.1,351.88 157.15,351.07 161.2,350.3 165.25,349.56 169.3,348.85 173.35,348.18 177.4,347.53 181.45,346.91 185.5,346.32 189.55,345.75 193.6,345.2 197.65,344.67 201.7,344.16 205.75,343.67 209.8,343.2 213.85,342.75 217.9,342.31 221.95,341.88 226.0,341.48 230.05,341.08 234.1,340.7 238.15,340.33 242.2,339.98 246.25,339.64 250.3,339.31 254.35,338.99 258.4,338.68 262.45,338.38 266.5,338.09 270.55,337.82 274.6,337.55 278.65,337.29 282.7,337.05 286.75,336.81 290.8,336.58 294.85,336.36 298.9,336.15 302.95,335.94 307.0,335.75 311.05,335.56 315.1,335.39 319.15,335.22 323.2,335.06 327.25,334.91 331.3,334.76 335.35,334.63 339.4,334.5 343.45,334.38 347.5,334.27 351.55,334.16 355.6,334.07 359.65,333.98 363.7,333.9 367.75,333.83 371.8,333.77 375.85,333.71 379.9,333.67 383.95,333.63 388.0,333.6 392.05,333.58 396.1,333.57 400.15,333.57 404.2,333.58 408.25,333.6 412.3,333.63 416.35,333.67 420.4,333.73 424.45,333.79 428.5,333.87 432.55,333.96 436.6,334.07 440.65,334.19 444.7,334.33 448.75,334.49 452.8,334.66 456.85,334.86 460.9,335.08 464.95,335.34 469.0,335.62 473.05,335.94 477.1,336.3 481.15,336.71 485.2,337.19 489.25,337.75 493.3,338.4 497.35,339.2 501.4,340.19 505.45,341.5 509.5,343.38 513.55,346.63 517.6,366.91 521.65,346.63 525.7,343.16 529.75,341.11 533.8,339.64 537.85,338.49 541.9,337.54 545.95,336.73 550.0,336.02" fill="none" stroke="#64748b" stroke-width="2" stroke-dasharray="6 4" /><polyline points="64.0,494.0 68.05,494.0 72.1,493.49 76.15,481.85 80.2,470.41 84.25,461.61 88.3,454.54 92.35,448.58 96.4,443.41 100.45,438.88 104.5,434.83 108.55,431.17 112.6,427.84 116.65,424.78 120.7,421.96 124.75,419.34 128.8,416.9 132.85,477.18 136.9,472.64 140.95,468.16 145.0,478.75 149.05,474.48 153.1,470.66 157.15,466.79 161.2,463.0 165.25,472.92 169.3,469.0 173.35,465.45 177.4,462.05 181.45,470.98 185.5,467.61 189.55,464.24 193.6,461.07 197.65,469.89 201.7,466.51 205.75,463.36 209.8,460.32 213.85,470.99 217.9,467.01 221.95,463.51 226.0,460.33 230.05,469.25 234.1,471.96 238.15,471.86 242.2,463.94 246.25,459.76 250.3,459.1 254.35,458.75 258.4,458.99 262.45,454.08 266.5,453.27 270.55,452.59 274.6,450.61 278.65,449.8 282.7,449.07 286.75,448.44 290.8,447.16 294.85,446.52 298.9,445.94 302.95,445.45 307.0,444.58 311.05,444.13 315.1,443.74 319.15,443.43 323.2,443.21 327.25,442.63 331.3,442.46 335.35,442.38 339.4,442.38 343.45,442.1 347.5,442.19 351.55,442.38 355.6,442.68 359.65,442.71 363.7,443.14 367.75,443.71 371.8,444.45 375.85,445.43 379.9,445.8 383.95,447.02 388.0,448.63 392.05,450.96 396.1,455.17 400.15,455.08 404.2,463.79 408.25,458.37 412.3,454.9 416.35,453.23 420.4,457.36 424.45,456.37 428.5,455.16 432.55,453.5 436.6,451.52 440.65,449.42 444.7,448.84 448.75,446.57 452.8,444.56 456.85,442.77 460.9,441.16 464.95,439.72 469.0,438.61 473.05,437.4 477.1,436.3 481.15,435.3 485.2,434.38 489.25,433.54 493.3,432.76 497.35,432.06 501.4,431.45 505.45,430.86 509.5,430.31 513.55,429.81 517.6,429.35 521.65,428.94 525.7,428.56 529.75,428.22 533.8,427.94 537.85,427.67 541.9,427.43 545.95,427.22 550.0,427.04" fill="none" stroke="#16a34a" stroke-width="2" /><line x1="562" y1="332" x2="584" y2="332" stroke="#dc2626" stroke-width="2.4" stroke-dasharray="6 4" /><text x="589" y="335.5" font-size="9.5" fill="#1a1a2e">|ΔT|/T  constant-γ</text><line x1="562" y1="348" x2="584" y2="348" stroke="#64748b" stroke-width="2.4" stroke-dasharray="6 4" /><text x="589" y="351.5" font-size="9.5" fill="#1a1a2e">|ΔP|/P  constant-γ</text><line x1="562" y1="364" x2="584" y2="364" stroke="#16a34a" stroke-width="2.4" /><text x="589" y="367.5" font-size="9.5" fill="#1a1a2e">|ΔT|/T  legacy gas_Mach!</text><text x="307.0" y="532" text-anchor="middle" font-size="10.5" fill="#334155">Mach number M</text></svg></div>
+  <p class="fig-claim">Total→static of dry air (Tt = 1000 K, Pt = 8 bar) over M ∈ [0, 3].
+  <code>static_state</code> (solid) and the legacy enthalpy-based <code>gas_Mach!</code> agree to the
+  inversion tolerance; the <strong>constant-γ</strong> FlowStations relations (dashed) diverge,
+  growing with Mach. The residual panel is the relative error of each model against the exact result.</p>
+  <span class="fig-stat">constant-γ error up to 6.75% (T), 2.27% (P) by M=3 · legacy gas_Mach! agrees to 7.9e-10 (T), 3.1e-9 (P)</span>
+  <div class="fig-provenance">
+    generated by <span class="wt">claude_sandbox/walkthrough/evidence/mach_exact.jl</span> (working tree) ·
+    <code>julia --project=claude_sandbox/proto_deriv claude_sandbox/walkthrough/evidence/mach_exact.jl</code> ·
+    data: evidence/mach_exact.csv · stats: evidence/mach_exact_stats.json · Julia 1.12.6 · 2026-06-15
+  </div>
+</div>
+
+<div class="evidence-figure" id="fig-bench">
+  <div class="fig-title">Figure 2 — Performance: pure verbs are zero-allocation and faster (median ns, log scale)</div>
+  <div class="fig-svg"><svg xmlns="http://www.w3.org/2000/svg" width="760" height="340" viewBox="0 0 760 340" font-family="Inter,system-ui,sans-serif"><rect width="760" height="340" fill="#ffffff"/><text x="380.0" y="20" text-anchor="middle" font-size="13" font-weight="700" fill="#1a1a2e">Per-call cost: legacy mutable (red) vs new pure (green) — median ns, log scale</text><line x1="70" y1="220.63" x2="740" y2="220.63" stroke="#e2e8f0" stroke-width="1"/><text x="64" y="223.63" text-anchor="end" font-size="9.5" fill="#64748b">10</text><line x1="70" y1="153.44" x2="740" y2="153.44" stroke="#e2e8f0" stroke-width="1"/><text x="64" y="156.44" text-anchor="end" font-size="9.5" fill="#64748b">100</text><line x1="70" y1="86.24" x2="740" y2="86.24" stroke="#e2e8f0" stroke-width="1"/><text x="64" y="89.24" text-anchor="end" font-size="9.5" fill="#64748b">1000</text><line x1="70" y1="40" x2="70" y2="254" stroke="#334155" stroke-width="1.2"/><line x1="70" y1="254" x2="740" y2="254" stroke="#334155" stroke-width="1.2"/><text x="16" y="147.0" text-anchor="middle" font-size="10.5" fill="#334155" transform="rotate(-90 16 147.0)">median time [ns]</text><rect x="92.97" y="57.15" width="49.77" height="196.85" fill="#dc2626" opacity="0.85" rx="2"/><text x="117.86" y="52.15" text-anchor="middle" font-size="10" font-weight="700" fill="#1a1a2e">2709 ns / 181a</text><text x="117.86" y="270.0" text-anchor="middle" font-size="9.5" fill="#334155">gas_Mach!</text><text x="117.86" y="282.0" text-anchor="middle" font-size="9.5" fill="#334155">legacy</text><rect x="188.69" y="103.6" width="49.77" height="150.4" fill="#16a34a" opacity="0.85" rx="2"/><text x="213.57" y="98.6" text-anchor="middle" font-size="10" font-weight="700" fill="#1a1a2e">552 ns / 0a</text><text x="213.57" y="270.0" text-anchor="middle" font-size="9.5" fill="#334155">static_state</text><text x="213.57" y="282.0" text-anchor="middle" font-size="9.5" fill="#334155">new</text><rect x="284.4" y="122.26" width="49.77" height="131.74" fill="#dc2626" opacity="0.85" rx="2"/><text x="309.29" y="117.26" text-anchor="middle" font-size="10" font-weight="700" fill="#1a1a2e">291 ns / 9a</text><text x="309.29" y="270.0" text-anchor="middle" font-size="9.5" fill="#334155">a=√γRT</text><text x="309.29" y="282.0" text-anchor="middle" font-size="9.5" fill="#334155">legacy</text><rect x="380.11" y="233.77" width="49.77" height="20.23" fill="#16a34a" opacity="0.85" rx="2"/><text x="405.0" y="228.77" text-anchor="middle" font-size="10" font-weight="700" fill="#1a1a2e">6 ns / 0a</text><text x="405.0" y="270.0" text-anchor="middle" font-size="9.5" fill="#334155">speed_of_sound</text><text x="405.0" y="282.0" text-anchor="middle" font-size="9.5" fill="#334155">new</text><rect x="475.83" y="125.52" width="49.77" height="128.48" fill="#16a34a" opacity="0.85" rx="2"/><text x="500.71" y="120.52" text-anchor="middle" font-size="10" font-weight="700" fill="#1a1a2e">260 ns / 0a</text><text x="500.71" y="270.0" text-anchor="middle" font-size="9.5" fill="#334155">stagnation_state</text><text x="500.71" y="282.0" text-anchor="middle" font-size="9.5" fill="#334155">new</text><rect x="571.54" y="131.06" width="49.77" height="122.94" fill="#16a34a" opacity="0.85" rx="2"/><text x="596.43" y="126.06" text-anchor="middle" font-size="10" font-weight="700" fill="#1a1a2e">215 ns / 0a</text><text x="596.43" y="270.0" text-anchor="middle" font-size="9.5" fill="#334155">compress ηp</text><text x="596.43" y="282.0" text-anchor="middle" font-size="9.5" fill="#334155">new</text><rect x="667.26" y="110.12" width="49.77" height="143.88" fill="#16a34a" opacity="0.85" rx="2"/><text x="692.14" y="105.12" text-anchor="middle" font-size="10" font-weight="700" fill="#1a1a2e">441 ns / 0a</text><text x="692.14" y="270.0" text-anchor="middle" font-size="9.5" fill="#334155">compress ηs</text><text x="692.14" y="282.0" text-anchor="middle" font-size="9.5" fill="#334155">new</text></svg></div>
+  <p class="fig-claim">Per-call cost, legacy mutable (red) vs new pure (green). The headline pair is
+  the Mach state-set: <code>static_state</code> is 4.9× faster than <code>gas_Mach!</code> with
+  <strong>181 → 0</strong> allocations; <code>speed_of_sound</code> is 46× faster. <code>compress</code>
+  with <code>ηs</code> costs ~2× the <code>ηp</code> form — honestly, it runs the loss-free isentrope
+  <em>plus</em> an enthalpy inversion — but is still zero-allocation.</p>
+  <span class="fig-stat">static_state 552 ns / 0 alloc vs gas_Mach! 2709 ns / 181 alloc (4.9×) · speed_of_sound 6.4 ns (46×)</span>
+  <div class="fig-provenance">
+    generated by <span class="wt">claude_sandbox/walkthrough/evidence/flow_bench.jl</span> (working tree) ·
+    BenchmarkTools.jl, min &amp; median over default samples · Apple M2 Pro, arm64-darwin, Julia 1.12.6 ·
+    <code>julia --project=claude_sandbox/proto_deriv claude_sandbox/walkthrough/evidence/flow_bench.jl</code> ·
+    raw: evidence/flow_bench.json · 2026-06-15
+  </div>
+</div>
+
+<div class="evidence-figure" id="fig-eta">
+  <div class="fig-title">Figure 3 — The efficiency convention changes the answer, and is state-dependent</div>
+  <div class="fig-svg"><svg xmlns="http://www.w3.org/2000/svg" width="760" height="538" viewBox="0 0 760 538" font-family="Inter,system-ui,sans-serif"><rect width="760" height="538" fill="#ffffff"/><text x="380.0" y="18" text-anchor="middle" font-size="13" font-weight="700" fill="#1a1a2e">Compressor outlet from T1=288 K: the efficiency convention changes the answer</text><line x1="64" y1="236.52" x2="550" y2="236.52" stroke="#e2e8f0" stroke-width="1"/><text x="58" y="239.52" text-anchor="end" font-size="9.5" fill="#64748b">400</text><line x1="64" y1="201.84" x2="550" y2="201.84" stroke="#e2e8f0" stroke-width="1"/><text x="58" y="204.84" text-anchor="end" font-size="9.5" fill="#64748b">500</text><line x1="64" y1="167.17" x2="550" y2="167.17" stroke="#e2e8f0" stroke-width="1"/><text x="58" y="170.17" text-anchor="end" font-size="9.5" fill="#64748b">600</text><line x1="64" y1="132.49" x2="550" y2="132.49" stroke="#e2e8f0" stroke-width="1"/><text x="58" y="135.49" text-anchor="end" font-size="9.5" fill="#64748b">700</text><line x1="64" y1="97.82" x2="550" y2="97.82" stroke="#e2e8f0" stroke-width="1"/><text x="58" y="100.82" text-anchor="end" font-size="9.5" fill="#64748b">800</text><line x1="64" y1="63.14" x2="550" y2="63.14" stroke="#e2e8f0" stroke-width="1"/><text x="58" y="66.14" text-anchor="end" font-size="9.5" fill="#64748b">900</text><line x1="64" y1="30" x2="64" y2="270" stroke="#334155" stroke-width="1.2"/><line x1="64" y1="270" x2="550" y2="270" stroke="#334155" stroke-width="1.2"/><line x1="102.37" y1="270" x2="102.37" y2="274" stroke="#334155" stroke-width="1"/><text x="102.37" y="286" text-anchor="middle" font-size="9.5" fill="#64748b">5</text><line x1="166.32" y1="270" x2="166.32" y2="274" stroke="#334155" stroke-width="1"/><text x="166.32" y="286" text-anchor="middle" font-size="9.5" fill="#64748b">10</text><line x1="230.26" y1="270" x2="230.26" y2="274" stroke="#334155" stroke-width="1"/><text x="230.26" y="286" text-anchor="middle" font-size="9.5" fill="#64748b">15</text><line x1="294.21" y1="270" x2="294.21" y2="274" stroke="#334155" stroke-width="1"/><text x="294.21" y="286" text-anchor="middle" font-size="9.5" fill="#64748b">20</text><line x1="358.16" y1="270" x2="358.16" y2="274" stroke="#334155" stroke-width="1"/><text x="358.16" y="286" text-anchor="middle" font-size="9.5" fill="#64748b">25</text><line x1="422.11" y1="270" x2="422.11" y2="274" stroke="#334155" stroke-width="1"/><text x="422.11" y="286" text-anchor="middle" font-size="9.5" fill="#64748b">30</text><line x1="486.05" y1="270" x2="486.05" y2="274" stroke="#334155" stroke-width="1"/><text x="486.05" y="286" text-anchor="middle" font-size="9.5" fill="#64748b">35</text><line x1="550.0" y1="270" x2="550.0" y2="274" stroke="#334155" stroke-width="1"/><text x="550.0" y="286" text-anchor="middle" font-size="9.5" fill="#64748b">40</text><text x="14" y="150.0" text-anchor="middle" font-size="10.5" fill="#334155" transform="rotate(-90 14 150.0)">outlet T2 [K]</text><polyline points="64.0,253.45 68.91,247.21 73.82,241.67 78.73,236.66 83.64,232.08 88.55,227.85 93.45,223.91 98.36,220.23 103.27,216.76 108.18,213.48 113.09,210.37 118.0,207.41 122.91,204.57 127.82,201.86 132.73,199.26 137.64,196.76 142.55,194.35 147.45,192.02 152.36,189.77 157.27,187.6 162.18,185.49 167.09,183.44 172.0,181.45 176.91,179.51 181.82,177.63 186.73,175.79 191.64,174.0 196.55,172.25 201.45,170.55 206.36,168.88 211.27,167.25 216.18,165.65 221.09,164.09 226.0,162.56 230.91,161.06 235.82,159.59 240.73,158.14 245.64,156.73 250.55,155.33 255.45,153.97 260.36,152.62 265.27,151.3 270.18,150.0 275.09,148.72 280.0,147.47 284.91,146.23 289.82,145.01 294.73,143.81 299.64,142.62 304.55,141.46 309.45,140.31 314.36,139.17 319.27,138.05 324.18,136.95 329.09,135.86 334.0,134.79 338.91,133.73 343.82,132.68 348.73,131.64 353.64,130.62 358.55,129.61 363.45,128.61 368.36,127.63 373.27,126.65 378.18,125.69 383.09,124.73 388.0,123.79 392.91,122.86 397.82,121.94 402.73,121.02 407.64,120.12 412.55,119.23 417.45,118.34 422.36,117.47 427.27,116.6 432.18,115.74 437.09,114.89 442.0,114.05 446.91,113.21 451.82,112.39 456.73,111.57 461.64,110.76 466.55,109.95 471.45,109.15 476.36,108.36 481.27,107.58 486.18,106.8 491.09,106.03 496.0,105.27 500.91,104.51 505.82,103.76 510.73,103.02 515.64,102.28 520.55,101.55 525.45,100.82 530.36,100.1 535.27,99.38 540.18,98.67 545.09,97.97 550.0,97.27" fill="none" stroke="#64748b" stroke-width="2" stroke-dasharray="6 4" /><polyline points="64.0,249.14 68.91,241.52 73.82,234.69 78.73,228.49 83.64,222.79 88.55,217.5 93.45,212.55 98.36,207.91 103.27,203.52 108.18,199.37 113.09,195.41 118.0,191.63 122.91,188.02 127.82,184.55 132.73,181.21 137.64,178.0 142.55,174.89 147.45,171.89 152.36,168.99 157.27,166.18 162.18,163.44 167.09,160.79 172.0,158.21 176.91,155.69 181.82,153.24 186.73,150.85 191.64,148.52 196.55,146.24 201.45,144.01 206.36,141.83 211.27,139.7 216.18,137.61 221.09,135.56 226.0,133.55 230.91,131.58 235.82,129.65 240.73,127.75 245.64,125.89 250.55,124.05 255.45,122.25 260.36,120.48 265.27,118.74 270.18,117.03 275.09,115.34 280.0,113.67 284.91,112.04 289.82,110.42 294.73,108.83 299.64,107.27 304.55,105.72 309.45,104.19 314.36,102.69 319.27,101.21 324.18,99.74 329.09,98.29 334.0,96.86 338.91,95.45 343.82,94.06 348.73,92.68 353.64,91.32 358.55,89.97 363.45,88.64 368.36,87.33 373.27,86.03 378.18,84.74 383.09,83.47 388.0,82.21 392.91,80.96 397.82,79.73 402.73,78.5 407.64,77.3 412.55,76.1 417.45,74.91 422.36,73.74 427.27,72.58 432.18,71.43 437.09,70.28 442.0,69.15 446.91,68.03 451.82,66.92 456.73,65.82 461.64,64.73 466.55,63.65 471.45,62.58 476.36,61.52 481.27,60.46 486.18,59.42 491.09,58.38 496.0,57.35 500.91,56.33 505.82,55.32 510.73,54.31 515.64,53.32 520.55,52.33 525.45,51.35 530.36,50.38 535.27,49.41 540.18,48.45 545.09,47.5 550.0,46.55" fill="none" stroke="#2563eb" stroke-width="2" /><polyline points="64.0,249.6 68.91,242.28 73.82,235.76 78.73,229.89 83.64,224.51 88.55,219.55 93.45,214.94 98.36,210.62 103.27,206.56 108.18,202.72 113.09,199.08 118.0,195.62 122.91,192.31 127.82,189.14 132.73,186.11 137.64,183.19 142.55,180.37 147.45,177.66 152.36,175.03 157.27,172.5 162.18,170.04 167.09,167.65 172.0,165.33 176.91,163.08 181.82,160.88 186.73,158.75 191.64,156.66 196.55,154.63 201.45,152.64 206.36,150.7 211.27,148.81 216.18,146.95 221.09,145.14 226.0,143.36 230.91,141.61 235.82,139.91 240.73,138.23 245.64,136.58 250.55,134.97 255.45,133.38 260.36,131.82 265.27,130.29 270.18,128.78 275.09,127.3 280.0,125.84 284.91,124.4 289.82,122.99 294.73,121.59 299.64,120.22 304.55,118.87 309.45,117.53 314.36,116.22 319.27,114.92 324.18,113.64 329.09,112.38 334.0,111.14 338.91,109.91 343.82,108.69 348.73,107.49 353.64,106.31 358.55,105.14 363.45,103.98 368.36,102.84 373.27,101.71 378.18,100.6 383.09,99.49 388.0,98.4 392.91,97.32 397.82,96.25 402.73,95.2 407.64,94.15 412.55,93.12 417.45,92.09 422.36,91.08 427.27,90.07 432.18,89.08 437.09,88.1 442.0,87.12 446.91,86.16 451.82,85.2 456.73,84.25 461.64,83.31 466.55,82.38 471.45,81.46 476.36,80.54 481.27,79.64 486.18,78.74 491.09,77.85 496.0,76.97 500.91,76.09 505.82,75.22 510.73,74.36 515.64,73.51 520.55,72.66 525.45,71.82 530.36,70.99 535.27,70.16 540.18,69.34 545.09,68.52 550.0,67.71" fill="none" stroke="#16a34a" stroke-width="2" /><line x1="562" y1="36" x2="584" y2="36" stroke="#64748b" stroke-width="2.4" stroke-dasharray="6 4" /><text x="589" y="39.5" font-size="9.5" fill="#1a1a2e">ideal (η = 1)</text><line x1="562" y1="52" x2="584" y2="52" stroke="#2563eb" stroke-width="2.4" /><text x="589" y="55.5" font-size="9.5" fill="#1a1a2e">ηp = 0.85 (polytropic)</text><line x1="562" y1="68" x2="584" y2="68" stroke="#16a34a" stroke-width="2.4" /><text x="589" y="71.5" font-size="9.5" fill="#1a1a2e">ηs = 0.85 (isentropic)</text><text x="307.0" y="304" text-anchor="middle" font-size="10.5" fill="#334155">pressure ratio PR</text><line x1="64" y1="493.71" x2="550" y2="493.71" stroke="#e2e8f0" stroke-width="1"/><text x="58" y="496.71" text-anchor="end" font-size="9.5" fill="#64748b">0.76</text><line x1="64" y1="459.01" x2="550" y2="459.01" stroke="#e2e8f0" stroke-width="1"/><text x="58" y="462.01" text-anchor="end" font-size="9.5" fill="#64748b">0.78</text><line x1="64" y1="424.32" x2="550" y2="424.32" stroke="#e2e8f0" stroke-width="1"/><text x="58" y="427.32" text-anchor="end" font-size="9.5" fill="#64748b">0.8</text><line x1="64" y1="389.63" x2="550" y2="389.63" stroke="#e2e8f0" stroke-width="1"/><text x="58" y="392.63" text-anchor="end" font-size="9.5" fill="#64748b">0.82</text><line x1="64" y1="354.93" x2="550" y2="354.93" stroke="#e2e8f0" stroke-width="1"/><text x="58" y="357.93" text-anchor="end" font-size="9.5" fill="#64748b">0.84</text><line x1="64" y1="326" x2="64" y2="494" stroke="#334155" stroke-width="1.2"/><line x1="64" y1="494" x2="550" y2="494" stroke="#334155" stroke-width="1.2"/><line x1="102.37" y1="494" x2="102.37" y2="498" stroke="#334155" stroke-width="1"/><text x="102.37" y="510" text-anchor="middle" font-size="9.5" fill="#64748b">5</text><line x1="166.32" y1="494" x2="166.32" y2="498" stroke="#334155" stroke-width="1"/><text x="166.32" y="510" text-anchor="middle" font-size="9.5" fill="#64748b">10</text><line x1="230.26" y1="494" x2="230.26" y2="498" stroke="#334155" stroke-width="1"/><text x="230.26" y="510" text-anchor="middle" font-size="9.5" fill="#64748b">15</text><line x1="294.21" y1="494" x2="294.21" y2="498" stroke="#334155" stroke-width="1"/><text x="294.21" y="510" text-anchor="middle" font-size="9.5" fill="#64748b">20</text><line x1="358.16" y1="494" x2="358.16" y2="498" stroke="#334155" stroke-width="1"/><text x="358.16" y="510" text-anchor="middle" font-size="9.5" fill="#64748b">25</text><line x1="422.11" y1="494" x2="422.11" y2="498" stroke="#334155" stroke-width="1"/><text x="422.11" y="510" text-anchor="middle" font-size="9.5" fill="#64748b">30</text><line x1="486.05" y1="494" x2="486.05" y2="498" stroke="#334155" stroke-width="1"/><text x="486.05" y="510" text-anchor="middle" font-size="9.5" fill="#64748b">35</text><line x1="550.0" y1="494" x2="550.0" y2="498" stroke="#334155" stroke-width="1"/><text x="550.0" y="510" text-anchor="middle" font-size="9.5" fill="#64748b">40</text><text x="14" y="410.0" text-anchor="middle" font-size="10.5" fill="#334155" transform="rotate(-90 14 410.0)">ηs implied by ηp=0.85</text><polyline points="64.0,363.97 68.91,370.83 73.82,376.71 78.73,381.85 83.64,386.42 88.55,390.53 93.45,394.27 98.36,397.69 103.27,400.85 108.18,403.79 113.09,406.52 118.0,409.08 122.91,411.49 127.82,413.76 132.73,415.92 137.64,417.96 142.55,419.9 147.45,421.75 152.36,423.52 157.27,425.21 162.18,426.84 167.09,428.4 172.0,429.9 176.91,431.34 181.82,432.74 186.73,434.08 191.64,435.39 196.55,436.64 201.45,437.86 206.36,439.05 211.27,440.19 216.18,441.31 221.09,442.39 226.0,443.44 230.91,444.47 235.82,445.47 240.73,446.44 245.64,447.39 250.55,448.31 255.45,449.22 260.36,450.1 265.27,450.96 270.18,451.8 275.09,452.63 280.0,453.44 284.91,454.23 289.82,455.0 294.73,455.76 299.64,456.5 304.55,457.23 309.45,457.95 314.36,458.65 319.27,459.34 324.18,460.01 329.09,460.68 334.0,461.33 338.91,461.97 343.82,462.6 348.73,463.22 353.64,463.83 358.55,464.43 363.45,465.02 368.36,465.6 373.27,466.18 378.18,466.74 383.09,467.3 388.0,467.84 392.91,468.38 397.82,468.91 402.73,469.43 407.64,469.95 412.55,470.46 417.45,470.96 422.36,471.46 427.27,471.94 432.18,472.43 437.09,472.9 442.0,473.37 446.91,473.84 451.82,474.29 456.73,474.75 461.64,475.19 466.55,475.63 471.45,476.07 476.36,476.5 481.27,476.93 486.18,477.35 491.09,477.76 496.0,478.17 500.91,478.58 505.82,478.98 510.73,479.38 515.64,479.77 520.55,480.16 525.45,480.55 530.36,480.93 535.27,481.31 540.18,481.68 545.09,482.05 550.0,482.41" fill="none" stroke="#16a34a" stroke-width="2" /><polyline points="64.0,337.59 68.91,337.59 73.82,337.59 78.73,337.59 83.64,337.59 88.55,337.59 93.45,337.59 98.36,337.59 103.27,337.59 108.18,337.59 113.09,337.59 118.0,337.59 122.91,337.59 127.82,337.59 132.73,337.59 137.64,337.59 142.55,337.59 147.45,337.59 152.36,337.59 157.27,337.59 162.18,337.59 167.09,337.59 172.0,337.59 176.91,337.59 181.82,337.59 186.73,337.59 191.64,337.59 196.55,337.59 201.45,337.59 206.36,337.59 211.27,337.59 216.18,337.59 221.09,337.59 226.0,337.59 230.91,337.59 235.82,337.59 240.73,337.59 245.64,337.59 250.55,337.59 255.45,337.59 260.36,337.59 265.27,337.59 270.18,337.59 275.09,337.59 280.0,337.59 284.91,337.59 289.82,337.59 294.73,337.59 299.64,337.59 304.55,337.59 309.45,337.59 314.36,337.59 319.27,337.59 324.18,337.59 329.09,337.59 334.0,337.59 338.91,337.59 343.82,337.59 348.73,337.59 353.64,337.59 358.55,337.59 363.45,337.59 368.36,337.59 373.27,337.59 378.18,337.59 383.09,337.59 388.0,337.59 392.91,337.59 397.82,337.59 402.73,337.59 407.64,337.59 412.55,337.59 417.45,337.59 422.36,337.59 427.27,337.59 432.18,337.59 437.09,337.59 442.0,337.59 446.91,337.59 451.82,337.59 456.73,337.59 461.64,337.59 466.55,337.59 471.45,337.59 476.36,337.59 481.27,337.59 486.18,337.59 491.09,337.59 496.0,337.59 500.91,337.59 505.82,337.59 510.73,337.59 515.64,337.59 520.55,337.59 525.45,337.59 530.36,337.59 535.27,337.59 540.18,337.59 545.09,337.59 550.0,337.59" fill="none" stroke="#64748b" stroke-width="2" stroke-dasharray="6 4" /><line x1="562" y1="332" x2="584" y2="332" stroke="#16a34a" stroke-width="2.4" /><text x="589" y="335.5" font-size="9.5" fill="#1a1a2e">ηs of the ηp=0.85 process</text><line x1="562" y1="348" x2="584" y2="348" stroke="#64748b" stroke-width="2.4" stroke-dasharray="6 4" /><text x="589" y="351.5" font-size="9.5" fill="#1a1a2e">ηp = 0.85 (fixed)</text><text x="307.0" y="532" text-anchor="middle" font-size="10.5" fill="#334155">pressure ratio PR</text></svg></div>
+  <p class="fig-claim">Compressor outlet from T1 = 288 K over PR ∈ [2, 40]. At a fixed efficiency value
+  0.85, polytropic (<code>ηp</code>) and isentropic (<code>ηs</code>) give different outlet
+  temperatures, diverging with PR — they are genuinely different loss models. The lower panel shows
+  that a <em>fixed</em> <code>ηp = 0.85</code> corresponds to a <strong>PR-dependent</strong>
+  isentropic efficiency (the same "ratios depend on the state, not the ratio alone" lesson as
+  ADR-0004's rejected <code>temp_ratio</code>). The two are reconcilable: measuring the isentropic
+  efficiency of a polytropic outlet and feeding it back as <code>ηs</code> reproduces that outlet.</p>
+  <span class="fig-stat">ηp=0.85 ↔ ηs ∈ [0.767, 0.835] across PR · outlet gap 61.0 K at PR=40 · reconstruction exact to 3.6e-16</span>
+  <div class="fig-provenance">
+    generated by <span class="wt">claude_sandbox/walkthrough/evidence/eta_convention.jl</span> (working tree) ·
+    <code>julia --project=claude_sandbox/proto_deriv claude_sandbox/walkthrough/evidence/eta_convention.jl</code> ·
+    data: evidence/eta_convention.csv · stats: evidence/eta_convention_stats.json · Julia 1.12.6 · 2026-06-15
+  </div>
+</div>
+
+<!-- ============ SIDEBAR CALLOUTS ============ -->
+
+<div class="sidebar-callout">
+  <h3><span class="badge">design</span> Why stagnation carries no efficiency</h3>
+  <p>The legacy <code>gas_Mach!</code> took a polytropic <code>ηp</code>. The new pair drops it: a
+  stagnation state is an <em>isentropic reference</em> (textbook definition), and keeping it loss-free
+  is exactly what makes <code>static_state</code> and <code>stagnation_state</code> exact inverses —
+  <code>static_state(stagnation_state(st, M), M) == st</code> to tolerance, verified to M = 3. A lossy
+  ram or diffuser is composed separately (a pressure-recovery factor, or an <code>expand</code>).
+  Losses compose; the reference does not.</p>
+  <p class="ref">ADR-0005 · <span class="wt">src/flow.jl (working tree)</span></p>
+</div>
+
+<div class="sidebar-callout">
+  <h3><span class="badge">naming</span> static_state / stagnation_state, not static / stagnation</h3>
+  <p>The verbs are named with the <code>_state</code> suffix rather than the bare
+  <code>static</code>/<code>stagnation</code> for two reasons: a bare <code>static</code> is a common
+  identifier that would shadow (or be shadowed by) caller bindings, and the suffix says what they
+  <em>return</em> — a <code>GasState</code>, echoing the <code>GasState</code> / <code>entropy</code> /
+  <code>density</code> state vocabulary. <code>speed_of_sound</code> and <code>mach</code> stay bare:
+  they return scalars and neither collides.</p>
+  <p class="ref">ADR-0005 §6 · CONTEXT.md</p>
+</div>
+
+<div class="footer">
+  <p><strong>Conventions.</strong> Source excerpts are verbatim (non-contiguous ranges show real line
+  numbers; gaps mark skipped lines). Green = the new pure flow layer; red = the legacy mutable path.
+  Equations are paired with the source line they come from. Every figure number is computed by the
+  named script and copied from its <code>*_stats.json</code> — never read off the chart.</p>
+  <p><strong>Provenance.</strong> Committed legacy code is pinned at
+  <code>133180c</code> (<a href="https://github.mit.edu/prash/Gas.jl/tree/133180c030a137d3f638c6669c02169ce8e77f0f">github.mit.edu/prash/Gas.jl@133180c</a>).
+  The new flow layer — <code>src/flow.jl</code>, the <code>ηs</code> forms in
+  <code>src/gasstate.jl</code>, and <code>speed_of_sound</code> in <code>src/frozengas.jl</code> — is
+  <strong>uncommitted working-tree</strong> at generation time, cited as <code>file:line</code> with no
+  permalink. <code>src/FlowStations.jl</code> is git-ignored, untracked scratch (never in the module).</p>
+  <p><strong>Regenerate the figures</strong> (read-only, deterministic):</p>
+  <ul style="font-family:var(--font-mono);font-size:.74rem;color:#475569;margin:.3rem 0 .3rem 1.2rem;line-height:1.9">
+    <li>julia --project=claude_sandbox/proto_deriv claude_sandbox/walkthrough/evidence/mach_exact.jl</li>
+    <li>julia --project=claude_sandbox/proto_deriv claude_sandbox/walkthrough/evidence/flow_bench.jl</li>
+    <li>julia --project=claude_sandbox/proto_deriv claude_sandbox/walkthrough/evidence/eta_convention.jl</li>
+  </ul>
+  <p style="font-size:.74rem;color:#64748b">generated from Gas.jl (branch cleanup_arch, working tree) on 2026-06-15 · figures: hand-built SVG (matplotlib unavailable), reproducible with Julia alone.</p>
+</div>
+
+
+<!-- ============================================================ -->
+<!-- FLOW (omit the .flow div entirely for comparison-only or      -->
+<!-- evaluation documents — see components/*.md)                   -->
+<!-- ============================================================ -->
+
+
+<!-- EVIDENCE_FIGURES_OPTIONAL -->
+
+<!-- SIDEBAR_CALLOUTS -->
+
+<!-- FOOTER_BLOCK -->
+
+</div><!-- /container -->
+
+<!-- ============================================================ -->
+<!-- JS                                                            -->
+<!-- ============================================================ -->
+<script>
+function toggle(id){
+  const body=document.getElementById('body-'+id);
+  const icon=document.getElementById('toggle-'+id);
+  if(body.classList.contains('show')){
+    body.classList.remove('show');
+    icon.classList.remove('open');
+  }else{
+    body.classList.add('show');
+    icon.classList.add('open');
+    if(window.renderMathInElement){
+      renderMathInElement(body,{delimiters:[
+        {left:'$$',right:'$$',display:true},
+        {left:'$',right:'$',display:false}
+      ]});
+    }
+  }
+}
+/* Expand every cell-body in a comparison row at once. Wire the row label:
+   <div class="lane-row-label" onclick="expandRow('rowA-v1,rowA-v2,rowA-v3')"> */
+function expandRow(ids){
+  ids.split(',').forEach(function(s){
+    s=s.trim();
+    var body=document.getElementById('body-'+s);
+    if(body && !body.classList.contains('show')) toggle(s);
+  });
+}
+window.addEventListener('beforeprint',function(){
+  document.querySelectorAll('.node-body, .type-body').forEach(function(el){el.classList.add('show')});
+  document.querySelectorAll('.toggle, .type-toggle').forEach(function(el){el.classList.add('open')});
+  if(window.renderMathInElement){
+    renderMathInElement(document.body,{delimiters:[
+      {left:'$$',right:'$$',display:true},
+      {left:'$',right:'$',display:false}
+    ]});
+  }
+});
+
+/* ===== Floating TOC: toggle + click-to-expand + scroll-highlight =====
+   Active only when a <nav class="toc-rail"> + <button class="toc-toggle">
+   are injected at TOC_RAIL_OPTIONAL. The rail starts open on viewports
+   ≥1500 px and closed on narrower; the toggle button is always visible. */
+(function(){
+  var rail = document.querySelector('.toc-rail');
+  var btn = document.querySelector('.toc-toggle');
+  if(rail && btn){
+    var openByDefault = window.matchMedia('(min-width: 1500px)').matches;
+    function setOpen(open){
+      rail.classList.toggle('open', open);
+      btn.classList.toggle('open', open);
+      btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    }
+    setOpen(openByDefault);
+    btn.addEventListener('click', function(){ setOpen(!rail.classList.contains('open')); });
+    document.addEventListener('keydown', function(e){
+      if(e.key === 'Escape' && rail.classList.contains('open')){ setOpen(false); }
+    });
+  }
+
+  var tocLinks = document.querySelectorAll('.toc-rail a[href^="#"]');
+  if(!tocLinks.length) return;
+  tocLinks.forEach(function(link){
+    link.addEventListener('click', function(){
+      var slug = link.dataset.toggle;
+      if(!slug) return;
+      var body = document.getElementById('body-' + slug);
+      if(body && !body.classList.contains('show') && typeof toggle === 'function'){
+        toggle(slug);
+      }
+    });
+  });
+  var targets = Array.prototype.map.call(tocLinks, function(link){
+    var id = link.getAttribute('href').slice(1);
+    var el = document.getElementById(id);
+    return el ? {link: link, el: el} : null;
+  }).filter(Boolean);
+  var ticking = false;
+  function updateActive(){
+    var focus = window.innerHeight * 0.28;
+    var active = null;
+    for(var i=0; i<targets.length; i++){
+      if(targets[i].el.getBoundingClientRect().top <= focus){ active = targets[i].link; }
+    }
+    tocLinks.forEach(function(l){ l.classList.remove('active'); });
+    if(active) active.classList.add('active');
+    ticking = false;
+  }
+  function onScroll(){ if(!ticking){ requestAnimationFrame(updateActive); ticking = true; } }
+  window.addEventListener('scroll', onScroll, {passive:true});
+  window.addEventListener('resize', onScroll, {passive:true});
+  updateActive();
+})();
+</script>
+
+</body>
+</html>

@@ -143,3 +143,9 @@ This seemed like the sort of natural OOP model, where then you'd have methods li
 [^julia]: Technically in Julia this would not be a method of the object but rather a dispatch on the type of `Gas`, so something like `set_TP(gas, T, P)` but regardless the gas type was storing both it's identity "I'am hydrogen" and it's state "I am at 298.15 K". 
 
 HA Claude was so snarky about something I had tried to do a while back (without the all knowing wisdom of AI...) that was sitting uncommitted in my local repo: (Amusingly, the untracked `FlowStations.jl` scratch file in the repo was groping toward exactly this.)
+
+*2026-06-14 (Sun, 14th Jun)*
+
+ in another session, I was able to clean up almost all the remaining features that the new frozen gas object `FrozenGas` did not have.  The "show-work" of everything the agent implemented is [here](/prashanth/assets/flow-feaures.html).
+ 
+ It became really important to work on the unit tests for this, specifically ensuring that these are property based tests so future agents (or humans!) looking at errors can understand what failed and why. 
