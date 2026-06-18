@@ -1,8 +1,21 @@
 ---
 import Base from '../layouts/Base.astro';
-// Home = the project overview, rendered verbatim from the root markdown.
-import { Content } from '../../PowerCycles_Overview.md';
+import { getCollection } from 'astro:content';
+// Home = the list of projects. Each links to its own /projects/<slug> page.
+// Projects are authored as markdown in the root `projects/` folder and loaded
+// via the `projects` content collection (see src/content.config.ts).
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+const projects = (await getCollection('projects')).sort((a, b) => a.data.order - b.data.order);
 ---
-<Base title="PowerCycles.jl · Prashanth" current="project">
-  <Content />
+<Base title="Projects · Prashanth" current="project">
+  <h1>Projects</h1>
+  <ul class="project-index">
+    {projects.map((p) => (
+      <li>
+        <a href={`${base}/projects/${p.id}`}>{p.data.title}</a>
+        {p.data.status && <span class="project-status">{p.data.status}</span>}
+        {p.data.summary && <span class="project-summary">{p.data.summary}</span>}
+      </li>
+    ))}
+  </ul>
 </Base>

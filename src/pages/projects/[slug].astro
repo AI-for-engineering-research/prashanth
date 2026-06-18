@@ -1,0 +1,19 @@
+---
+import Base from '../../layouts/Base.astro';
+import { getCollection, render } from 'astro:content';
+
+export async function getStaticPaths() {
+  const projects = await getCollection('projects');
+  return projects.map((entry) => ({ params: { slug: entry.id }, props: { entry } }));
+}
+
+const { entry } = Astro.props;
+const { Content } = await render(entry);
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+// No extra <h1>: the project markdown carries its own title heading (as the
+// home page did before the multi-project refactor).
+---
+<Base title={`${entry.data.title} · Prashanth`} current="project">
+  <a class="backlink" href={`${base}/`}>← Projects</a>
+  <Content />
+</Base>

@@ -1,3 +1,10 @@
+---
+title: PowerCycles.jl
+summary: A v0.1 Julia package for fast, AD-friendly gas-turbine cycle analysis.
+status: v0.1 · active
+order: 1
+---
+
 # PowerCycles.jl — Project Overview
 
 A v0.1 Julia package (`PowerCycles`) for advanced propulsion system

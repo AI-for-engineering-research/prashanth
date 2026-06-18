@@ -1,7 +1,8 @@
 # Build
 
 ## Update + preview (every time)
-1. edit `WeeklyLog.md` (log) or `PowerCycles_Overview.md` (project page). plain markdown.
+1. edit `WeeklyLog.md` (log) or a file in `projects/` (project pages). plain markdown.
+   - new project: copy `projects/_template.md` to `projects/<slug>.md`. shows up on the home page (`/`) and at `/projects/<slug>`. `_`-prefixed files are ignored.
 2. `npm run dev`
 3. open http://localhost:4321 — auto-reloads on save.
 4. ctrl-C to stop.

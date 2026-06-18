@@ -229,7 +229,36 @@ hr {
   color: var(--faint);
 }
 
-/* Back link on a week detail page. */
+/* ── Project index (project list on the home page) ── */
+.project-index { list-style: none; padding: 0; margin: var(--space-l) 0; }
+.project-index li {
+  padding: var(--space-s) 0;
+  border-top: var(--hair) solid var(--rule);
+}
+.project-index li:last-child { border-bottom: var(--hair) solid var(--rule); }
+.project-index a {
+  font-size: var(--text-h3);
+  font-weight: 600;
+  text-decoration: none;
+  background: none;
+  padding: 0;
+}
+.project-index a:hover { color: var(--accent); }
+.project-status {
+  margin-left: var(--space-2xs);
+  font-family: var(--font-sans);
+  font-size: var(--text-meta);
+  letter-spacing: 0.04em;
+  color: var(--whisper);
+}
+.project-summary {
+  display: block;
+  margin-top: var(--space-3xs);
+  font-size: var(--text-note);
+  color: var(--muted);
+}
+
+/* Back link on a week / project detail page. */
 .backlink {
   display: inline-block;
   margin-bottom: var(--space-m);

@@ -13,4 +13,18 @@ const log = defineCollection({
   }),
 });
 
-export const collections = { log };
+// One markdown file per project, authored by hand in the root `projects/`
+// folder (unlike `log`, there's no split step — each project is already its own
+// file). Files whose name starts with `_` (e.g. _template.md) are ignored, so
+// they can serve as scaffolds without ever publishing.
+const projects = defineCollection({
+  loader: glob({ pattern: '[!_]*.md', base: './projects' }),
+  schema: z.object({
+    title: z.string(),
+    summary: z.string().default(''),
+    status: z.string().optional(),
+    order: z.number().default(99),
+  }),
+});
+
+export const collections = { log, projects };
