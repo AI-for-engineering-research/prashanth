@@ -123,11 +123,11 @@ After some initial massaging it came up with something interesting that seems en
 
 ## Week 3
 
+### Speeding up some thermo
 *2026-06-11 (Thu, 11th Jun)*
 
 Ok so in order to get to the next steps in PowerCycles.jl I'll need to use ideal gas thermo instead of fixed gas properties.  Almost all the computational cost in gas type in sizing or off design calculation is actually in the thermo, so I'm going to go back to my other package (that is already much much faster than pyCycle because it uses the NASA-9 polynomials instead of equilibrium calculations), to try and clean it up and make it more AD friendly. 
-
-#### Claude tells me everything I did wrong
+### Claude tells me everything I did wrong
  Right off the bat, Claude found some obvious areas for performance enhancement (I tried this with Fable 5 just because they announced they are going to take it away from us very soon).  when I initially wrote this package about two years ago, I took some care to try and minimize all the allocations and try and do smart things like calculate things only once, cache them etc... but turns out making almost all of my types immutable and testing the performance would have shown me how I could make it faster. Claude wrote the benchmarks and convinced me that these changes will make the most frequent calculations (set temperature and query $$c_p, h, s$$  for a gas) by 5-10x *and* make it AD compatible. 
 
 You can see how I asked Claude to [show me it's work here](/prashanth/assets/architecture_comparison.html). Now I really need to sleep.
@@ -146,6 +146,25 @@ HA Claude was so snarky about something I had tried to do a while back (without 
 
 *2026-06-14 (Sun, 14th Jun)*
 
- in another session, I was able to clean up almost all the remaining features that the new frozen gas object `FrozenGas` did not have.  The "show-work" of everything the agent implemented is [here](/prashanth/assets/flow-feaures.html).
+ in another session, I was able to clean up almost all the remaining features that the new frozen gas object `FrozenGas` did not have.  The "show-work" of everything the agent implemented is [here](/prashanth/assets/flow-features.html).
  
  It became really important to work on the unit tests for this, specifically ensuring that these are property based tests so future agents (or humans!) looking at errors can understand what failed and why. 
+
+*2026-06-16 (Tue, 16th Jun)*
+I was able to clean up all of this and actually post [a PR to my repo](https://github.com/MIT-LAE/IdealGasThermo.jl/pull/11) that showcases the benefit of having a immutable structure.  You can see that almost every comment that has been called with Claude. 
+
+Side note an interesting "julia" weridness bug that I was able to investigate quickly (which I would have struggled with for a long time had it not been for AI) had to do with the allocation checks behaving very differently within test suites vs called elsewhere... in certain versions of Julia. The CI and automated testing caught this and I was able to verify what the issue was by getting claude to write a bunch of "throw-away" tests.
+
+### A live demo recreating a published figure
+
+*2026-06-18 (Thu, 18th Jun)*
+ Something I thought would be actually cool for class today is to recreate a figure that has been published in the literature in an agentic manner - i.e., a single prompt describing what I want to recreate to a "package"  that can reproduce a figure from the paper. 
+ 
+I chose a paper by Petters & Kreidenweis on the hygroscopic growth of particles [^1],  since it was something that I was talking with Marcos about for his research recently.  they have this fairly simple looking figure that shows how the critical supersaturation varies as a function of dry diameter and the hygroscopicity of the particles.
+
+![[20260618_pk_figure1.png]]
+
+[^1]: Petters, M. D., & Kreidenweis, S. M. (2007). A single parameter representation of hygroscopic growth and cloud condensation nucleus activity. _Atmospheric Chemistry and Physics_, _7_(8), 1961–1971. doi:10.5194/acp-7-1961-2007
+
+I tried this on a couple different models. The best one so far has been `gpt-5-mini`:
+![[figure1_recreated.png]]
