@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Dual Numbers, Tags, and the One Derivative Rule IGT is Missing</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"
+  onload="renderMathInElement(document.body,{delimiters:[{left:'$$',right:'$$',display:true},{left:'$',right:'$',display:false}]});"></script>
+<style>
+  :root {
+    --teal:#0d9488; --teal-bg:#f0fdfa; --teal-bdr:#5eead4;
+    --orange:#ea580c; --orange-bg:#fff7ed; --orange-bdr:#fdba74;
+    --purple:#7c3aed; --purple-bg:#f5f3ff; --purple-bdr:#c4b5fd;
+    --green:#16a34a; --green-bg:#f0fdf4; --green-bdr:#86efac;
+    --red:#dc2626; --red-bg:#fef2f2; --red-bdr:#fca5a5;
+    --amber:#d97706; --amber-bg:#fffbeb; --amber-bdr:#fcd34d;
+    --blue:#2563eb; --blue-bg:#dbeafe; --blue-bdr:#93c5fd;
+    --gray:#64748b; --gray-bg:#f1f5f9; --gray-bdr:#cbd5e1;
+    --navy:#1e3a5f; --body-bg:#f8fafc; --card-bg:#ffffff; --border:#e2e8f0;
+    --text:#1e293b; --muted:#64748b;
+    --mono:'JetBrains Mono','Fira Code','Cascadia Code','Courier New',monospace;
+    --shadow:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.06);
+    --radius:8px;
+  }
+  *,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
+  html { scroll-behavior:smooth; font-size:15px; }
+  body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:var(--body-bg); color:var(--text); line-height:1.65; }
+  a { color:var(--teal); text-decoration:none; }
+  a:hover { text-decoration:underline; }
+  nav { position:sticky; top:0; z-index:100; background:var(--navy); color:#e2e8f0; padding:0 1.5rem; display:flex; align-items:center; flex-wrap:wrap; box-shadow:0 2px 8px rgba(0,0,0,0.25); }
+  nav .brand { font-weight:700; font-size:1rem; color:#fff; padding:0.75rem 1.5rem 0.75rem 0; border-right:1px solid rgba(255,255,255,0.15); margin-right:1rem; white-space:nowrap; }
+  nav a { color:#cbd5e1; font-size:0.8rem; padding:0.75rem 0.6rem; white-space:nowrap; transition:color 0.15s; }
+  nav a:hover { color:#fff; text-decoration:none; }
+  nav a.current { color:#fff; font-weight:600; border-bottom:2px solid var(--teal); }
+  .page-header { background:linear-gradient(135deg,#1e3a5f 0%,#7c3aed 60%,#0d9488 100%); color:#fff; padding:2.5rem 2rem 2rem; text-align:center; }
+  .page-header h1 { font-size:1.8rem; font-weight:700; letter-spacing:-.02em; margin-bottom:.35rem; }
+  .page-header .subtitle { font-size:1rem; opacity:.92; max-width:820px; margin:0 auto; }
+  .page-header .meta { margin-top:.85rem; font-size:.78rem; opacity:.78; font-family:var(--mono); }
+  .page { max-width:1000px; margin:0 auto; padding:2rem 1.5rem 4rem; }
+  section { margin-bottom:3rem; }
+  .section-header { display:flex; align-items:center; gap:0.75rem; border-bottom:2px solid var(--border); padding-bottom:0.5rem; margin-bottom:1.25rem; }
+  .section-header .badge { font-size:0.7rem; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; padding:0.2rem 0.55rem; border-radius:999px; background:var(--navy); color:#fff; }
+  .section-header h2 { font-size:1.3rem; font-weight:700; color:var(--navy); }
+  p { margin-bottom:0.75rem; }
+  p, li { font-size:0.92rem; }
+  .lead { font-size:1rem; }
+  .card { background:var(--card-bg); border:1px solid var(--border); border-radius:10px; padding:1.1rem 1.4rem; margin-bottom:1rem; }
+  .card.teal { border-left:4px solid var(--teal); background:var(--teal-bg); }
+  .card.purple { border-left:4px solid var(--purple); background:var(--purple-bg); }
+  .card.green { border-left:4px solid var(--green); background:var(--green-bg); }
+  .card.red { border-left:4px solid var(--red); background:var(--red-bg); }
+  .card.amber { border-left:4px solid var(--amber); background:var(--amber-bg); }
+  .card.blue { border-left:4px solid var(--blue); background:var(--blue-bg); }
+  .card.gray { border-left:4px solid var(--gray); background:var(--gray-bg); }
+  .card h3 { font-size:0.98rem; font-weight:700; margin-bottom:0.4rem; }
+  .card.teal h3 { color:var(--teal); } .card.purple h3 { color:var(--purple); }
+  .card.green h3 { color:var(--green); } .card.red h3 { color:var(--red); }
+  .card.amber h3 { color:var(--amber); } .card.blue h3 { color:var(--blue); } .card.gray h3 { color:var(--gray); }
+  .card p, .card li { font-size:0.9rem; }
+  .card ul, .card ol { padding-left:1.3rem; }
+  .card li { margin-bottom:0.25rem; }
+  code, .mono { font-family:var(--mono); font-size:0.84em; background:#eef2f7; padding:0.1em 0.35em; border-radius:3px; }
+  pre.src { background:#1c2127; color:#e8e6df; font-family:var(--mono); font-size:0.8rem; line-height:1.55; padding:0.8rem 1rem; border-radius:6px; margin:0.5rem 0; overflow-x:auto; white-space:pre; }
+  pre.src .ln { color:#7c8694; display:inline-block; width:2.4em; text-align:right; margin-right:0.8em; user-select:none; }
+  pre.src .cm { color:#7c8694; font-style:italic; }
+  pre.src .kw { color:#c792ea; }
+  pre.src .fn { color:#82aaff; }
+  pre.src .hl { color:#ffcb6b; }
+  pre.out { background:#0f172a; color:#94f09b; font-family:var(--mono); font-size:0.8rem; line-height:1.6; padding:0.8rem 1.1rem; border-radius:8px; margin:0.5rem 0; overflow-x:auto; white-space:pre; border:1px solid #1e3a5f; }
+  pre.out .em { color:#fca5a5; }
+  pre.out .gd { color:#fde68a; }
+  .src-caption { font-size:0.74rem; color:var(--muted); font-family:var(--mono); margin-top:-0.2rem; margin-bottom:0.7rem; padding-left:0.2rem; }
+  .eq-block { background:#fafbfd; border-left:3px solid var(--blue); padding:0.6rem 0.9rem; margin:0.6rem 0; border-radius:0 var(--radius) var(--radius) 0; overflow-x:auto; }
+  .eq-block.teal-eq { border-left-color:var(--teal); }
+  .eq-block.purple-eq { border-left-color:var(--purple); }
+  .eq-block.green-eq { border-left-color:var(--green); }
+  .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+  @media(max-width:760px){ .grid-2 { grid-template-columns:1fr; } }
+  .sidelabel { font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:var(--muted); margin-bottom:0.3rem; }
+  .step { display:flex; gap:0.8rem; margin-bottom:0.7rem; align-items:flex-start; }
+  .step .n { flex:0 0 1.7rem; height:1.7rem; border-radius:50%; background:var(--purple); color:#fff; font-weight:800; font-size:0.8rem; display:flex; align-items:center; justify-content:center; margin-top:0.05rem; }
+  .step .b { flex:1; font-size:0.9rem; }
+  .callout { background:var(--amber-bg); border-left:4px solid var(--amber); border-radius:var(--radius); padding:0.85rem 1.1rem; margin:0.75rem 0; font-size:0.9rem; }
+  .callout strong { color:var(--amber); }
+  .keypoint { background:var(--purple-bg); border:2px solid var(--purple-bdr); border-radius:10px; padding:1rem 1.3rem; margin:1rem 0; }
+  .keypoint .dtag { display:inline-block; font-size:0.66rem; font-weight:800; text-transform:uppercase; letter-spacing:0.06em; color:#fff; background:var(--purple); padding:0.2rem 0.6rem; border-radius:999px; margin-bottom:0.5rem; }
+  .toc { background:#fff; border:1px solid var(--border); border-radius:10px; padding:1rem 1.4rem; margin-bottom:2rem; }
+  .toc ol { padding-left:1.3rem; font-size:0.9rem; columns:2; }
+  @media(max-width:680px){ .toc ol { columns:1; } }
+  .toc li { margin-bottom:0.3rem; }
+  footer { background:var(--navy); color:#94a3b8; text-align:center; padding:1.5rem; font-size:0.82rem; }
+  footer strong { color:#e2e8f0; }
+</style>
+</head>
+<body>
+
+<nav>
+  <span class="brand">PowerCycles.jl</span>
+  <a href="00_shared_understanding.html">P0 Shared</a>
+  <a href="03_cpg_thermo.html">P3 Thermo</a>
+  <a href="06_turbojet_assembly.html">P6 Assembly</a>
+  <a href="07_tpg_ladder.html">P7 TPG Ladder</a>
+  <a href="08_dual_numbers_and_the_igt_gap.html" class="current">P8 Dual Numbers &amp; the AD Gap</a>
+</nav>
+
+<div class="page-header">
+  <h1>Dual Numbers, Tags, and the One Derivative Rule IGT is Missing</h1>
+  <p class="subtitle">A gentle, ground-up walk-through — assuming no automatic-differentiation background — of <em>exactly</em> which derivative rule IdealGasThermo is missing, why the TPG kernels nest, and the two ways to fix it. Math and the real Julia source, side by side.</p>
+  <p class="meta">Companion to P7 (TPG Ladder §5) &nbsp;·&nbsp; all code &amp; numbers reproduced live from IdealGasThermo v1.1.0</p>
+</div>
+
+<div class="page">
+
+<div class="toc">
+  <strong>What we'll build up to, one small step at a time:</strong>
+  <ol>
+    <li>Why we need derivatives at all (the Newton Jacobian)</li>
+    <li>The dual number: a value that carries its own slope</li>
+    <li>ForwardDiff's <code>Dual{Tag, V, N}</code></li>
+    <li>What <code>Tag</code> is, and why it exists</li>
+    <li>IGT's analytic shortcut for a normal gas</li>
+    <li>The new twist: a gas that carries a derivative</li>
+    <li>The collision — the missing rule, traced live</li>
+    <li>What the rule <em>should</em> return (the total derivative)</li>
+    <li>Two fixes: the shim, and the clean upstream method</li>
+    <li>The wishlist, now earned</li>
+  </ol>
+</div>
+
+<!-- ═══════════════ §1 ═══════════════ -->
+<section id="s1">
+  <div class="section-header"><span class="badge">§1</span><h2>Why we need derivatives at all</h2></div>
+  <p class="lead">PowerCycles solves the turbojet by Newton's method: it has a vector of unknowns $u$ (the station temperatures, pressures, FAR, mass flows…) and a residual function $r(u)$ that is zero at the solution. Newton repeatedly solves</p>
+  <div class="eq-block"><p>$$J\,\Delta u = -r(u), \qquad J_{ij} = \frac{\partial r_i}{\partial u_j}$$</p></div>
+  <p>so it needs the <strong>Jacobian</strong> $J$ — every partial derivative of every residual row with respect to every unknown. We could approximate each $\partial r_i/\partial u_j$ with a finite difference (nudge $u_j$, re-evaluate, divide), but that is slow and inexact. Instead PowerCycles uses <strong>forward-mode automatic differentiation</strong> (the <code>ForwardDiff</code> package): it computes these partials <em>exactly</em>, to machine precision, in essentially one evaluation. The rest of this page is about how that machinery works — and the one spot where IdealGasThermo's piece of it has a gap.</p>
+</section>
+
+<!-- ═══════════════ §2 ═══════════════ -->
+<section id="s2">
+  <div class="section-header"><span class="badge">§2</span><h2>The dual number — a value that carries its own slope</h2></div>
+  <p>Here is the whole idea in one line. Invent a tiny symbol $\varepsilon$ with the single rule</p>
+  <div class="eq-block teal-eq"><p>$$\varepsilon^2 = 0 \qquad(\varepsilon \neq 0).$$</p></div>
+  <p>A <strong>dual number</strong> is then $a + b\,\varepsilon$ — an ordinary value $a$ paired with a second slot $b$. Now watch what happens when you feed $x = a + \varepsilon$ (so $b=1$) through a function. Take $f(x) = x^2$:</p>
+  <div class="eq-block"><p>$$f(a+\varepsilon) = (a+\varepsilon)^2 = a^2 + 2a\,\varepsilon + \underbrace{\varepsilon^2}_{=\,0} = \underbrace{a^2}_{\text{value}} + \underbrace{2a}_{\text{slope}}\,\varepsilon.$$</p></div>
+  <p>The $\varepsilon$-slot came out holding exactly $2a = f'(a)$. We never wrote down the derivative rule for squaring — it <em>fell out of the arithmetic</em>. That is forward-mode AD: carry $(\text{value},\ \text{slope})$ side by side through every operation, and the slope of the final answer is the derivative. Each elementary operation just needs to know how to update both slots; for example multiplication is</p>
+  <div class="eq-block"><p>$$(a + b\varepsilon)(c + d\varepsilon) = ac + (ad + bc)\,\varepsilon \quad\;(\text{the } \varepsilon^2 \text{ term vanishes}),$$</p></div>
+  <p>which is just the product rule $\,(uv)' = u'v + uv'\,$ hiding in the $\varepsilon$-slot.</p>
+  <div class="card blue">
+    <h3>The two pieces have names</h3>
+    <p>In <code>ForwardDiff</code>, the value $a$ is the <code>value</code> and the slope $b$ is the <code>partials</code>. A dual number prints as <code>Dual(value, partials)</code>. Keep these two words in mind — every rule below is just "what is the value, and what is the partials."</p>
+  </div>
+</section>
+
+<!-- ═══════════════ §3 ═══════════════ -->
+<section id="s3">
+  <div class="section-header"><span class="badge">§3</span><h2>ForwardDiff's <code>Dual{Tag, V, N}</code></h2></div>
+  <p>Real problems differentiate with respect to <em>several</em> variables at once, so <code>ForwardDiff</code> generalizes the single $\varepsilon$ to $N$ of them — one per variable you are differentiating with respect to. A dual number's full type is</p>
+  <div class="eq-block purple-eq"><p>$$\texttt{Dual\{Tag,\ V,\ N\}} \;=\; \underbrace{\text{value of type } V}_{\text{the number itself}} \;+\; \underbrace{N \text{ partials}}_{\text{one slope per variable}}.$$</p></div>
+  <p>To ask "how does the answer change as variable&nbsp;#1 moves," you <em>seed</em> variable #1 with a partials-slot of $1$ and all others $0$. For a single variable, you seed it with $1$. Concretely, to differentiate with respect to FAR we hand the code <code>FAR</code> as a dual whose value is the current FAR and whose partials is&nbsp;$1$:</p>
+  <pre class="src"><span class="ln">  </span><span class="cm"># FAR = 0.03, seed ∂/∂FAR = 1   (one partial, so N = 1)</span>
+<span class="ln">  </span>FARd = ForwardDiff.Dual{<span class="hl">:demo</span>}(0.03, 1.0)
+<span class="ln">  </span><span class="cm"># type is Dual{:demo, Float64, 1}</span></pre>
+  <p>Run any function of <code>FARd</code> and read its <code>partials</code> — that is the derivative with respect to FAR. In <code>jacobian!</code>, PowerCycles seeds <em>all</em> the unknowns this way in one pass, then reads the partials off each residual row to fill in the Jacobian. (We will mostly use one variable at a time below to keep the arithmetic visible.)</p>
+  <p>But notice the first type parameter, <code>:demo</code>. That is the <strong>Tag</strong>, and it is the hinge of this whole story — so it gets its own section.</p>
+</section>
+
+<!-- ═══════════════ §4 ═══════════════ -->
+<section id="s4">
+  <div class="section-header"><span class="badge">§4</span><h2>What <code>Tag</code> is, and why it exists</h2></div>
+  <p>The <code>Tag</code> is a label — a type-level name — that says <em>which differentiation pass this dual number belongs to</em>. Every dual created in one call to <code>ForwardDiff.gradient</code> (one Jacobian evaluation) shares the same tag; they are siblings in the same pass.</p>
+  <p>Why bother labelling them? Because sometimes you differentiate a function that <em>itself</em> differentiates something — a derivative of a derivative. Then you have two independent $\varepsilon$'s in flight at once, an <em>inner</em> one and an <em>outer</em> one, and if you mix them up you silently get the wrong answer. This classic bug even has a name: <strong>perturbation confusion</strong>. The tag is the fix: the outer pass uses one tag, the inner pass a <em>different</em> tag, and the arithmetic keeps them apart.</p>
+  <div class="keypoint">
+    <span class="dtag">the rule of thumb that matters here</span>
+    <p style="margin-bottom:0;">A dual number's <strong>value slot is supposed to be an ordinary number</strong> (or a dual from a <em>different</em>, inner tag — that is a legitimate second derivative). What should <em>never</em> happen is a <code>Dual{Tag}</code> whose value slot is itself a <code>Dual{Tag}</code> with the <strong>same</strong> tag. That is not a second derivative — it is one pass accidentally wrapping itself twice. It is malformed, and downstream code that expects a plain number in the value slot will break. Hold onto this — it is exactly what goes wrong in §7.</p>
+  </div>
+</section>
+
+<!-- ═══════════════ §5 ═══════════════ -->
+<section id="s5">
+  <div class="section-header"><span class="badge">§5</span><h2>IGT's analytic shortcut for a normal gas</h2></div>
+  <p>Now to the thermodynamics. IdealGasThermo computes enthalpy $h(T)$ from a temperature polynomial. ForwardDiff would happily push a dual $T$ through that polynomial term by term — but IGT ships a faster <em>analytic</em> shortcut. It knows the textbook fact</p>
+  <div class="eq-block teal-eq"><p>$$\frac{dh}{dT} = c_p(T),$$</p></div>
+  <p>so instead of running the polynomial in dual arithmetic it just writes the answer down directly: the value is $h$ at the plain temperature, and the partials is $c_p$ times the incoming temperature-slope. Here is the <strong>real code</strong> — three lines from IGT's ForwardDiff extension:</p>
+  <pre class="src"><span class="ln">32</span><span class="cm"># cp, h, s0 of a gas at a Dual temperature — write the partials analytically</span>
+<span class="ln">32</span><span class="fn">cp</span>(gas::FrozenGas, d::Dual{Tag}) where {Tag} =
+<span class="ln">33</span>    Dual{Tag}(<span class="fn">cp</span>(gas, value(d)), cp_dT(gas, value(d)) * partials(d))
+<span class="ln">35</span><span class="fn">h</span>(gas::FrozenGas, d::Dual{Tag}) where {Tag} =
+<span class="ln">36</span>    Dual{Tag}(<span class="fn">h</span>(gas, value(d)), <span class="hl">cp(gas, value(d))</span> * partials(d))
+<span class="ln">38</span><span class="fn">s0</span>(gas::FrozenGas, d::Dual{Tag}) where {Tag} =
+<span class="ln">39</span>    Dual{Tag}(<span class="fn">s0</span>(gas, value(d)), cp(gas, value(d)) / value(d) * partials(d))</pre>
+  <p class="src-caption">~/.julia/packages/IdealGasThermo/.../ext/IdealGasThermoForwardDiffExt.jl, lines 32–39</p>
+  <p>Read the <code>h</code> rule (line 35) slowly against the math, because everything hinges on it:</p>
+  <div class="grid-2">
+    <div>
+      <div class="sidelabel">the math</div>
+      <div class="eq-block teal-eq"><p>$$h(T+\dot T\varepsilon) = \underbrace{h(T)}_{\text{value}} + \underbrace{c_p(T)\,\dot T}_{\text{partials}}\,\varepsilon$$</p></div>
+    </div>
+    <div>
+      <div class="sidelabel">the code (line 35)</div>
+      <pre class="src" style="margin-top:0;"><span class="cm"># value      partials</span>
+Dual{Tag}( <span class="hl">h(gas,value(d))</span> , cp(gas,value(d))*partials(d) )</pre>
+    </div>
+  </div>
+  <p><code>value(d)</code> strips the slope off the temperature to get the plain $T$; <code>partials(d)</code> is the incoming $\dot T$. The rule's two slots are exactly $h(T)$ and $c_p(T)\dot T$. </p>
+  <div class="callout">
+    <strong>The hidden assumption.</strong> Look at what type <code>h(gas, value(d))</code> has. For a <em>normal</em> gas — one whose polynomial coefficients are ordinary numbers — <code>value(d)</code> is a plain <code>Float64</code>, so <code>h(gas, value(d))</code> is a plain <code>Float64</code>. The value slot is a plain number, exactly as §4 demands. This rule was written assuming the gas is constant — its coefficients do not carry any derivative. That assumption is about to be broken.
+  </div>
+</section>
+
+<!-- ═══════════════ §6 ═══════════════ -->
+<section id="s6">
+  <div class="section-header"><span class="badge">§6</span><h2>The new twist — a gas that carries a derivative</h2></div>
+  <p>In the TPG turbojet the hot gas is <code>products(sys, FAR)</code>: its chemical composition — and therefore its polynomial coefficients, and therefore $c_p$, $\gamma$, $R$ — depend on the fuel–air ratio. When FAR is being differentiated (a dual), the composition moves with it, so the <em>gas's own coefficients become dual numbers</em>. Watch it happen live:</p>
+  <pre class="src"><span class="ln">  </span>FARd = ForwardDiff.Dual{<span class="hl">:demo</span>}(0.03, 1.0)   <span class="cm"># FAR with ∂/∂FAR = 1</span>
+<span class="ln">  </span>gasd = <span class="fn">products</span>(sys, FARd)
+<span class="ln">  </span><span class="fn">typeof</span>(gasd)</pre>
+  <pre class="out">FrozenGas{<span class="gd">ForwardDiff.Dual{:demo, Float64, 1}</span>}</pre>
+  <p>The gas's element type is now <code>Dual{:demo,Float64,1}</code> — every coefficient carries its sensitivity to FAR. So if we evaluate $h$ of this dual-carrying gas at a <em>plain</em> temperature, the answer is a dual: its value is the enthalpy, and its partials is $\partial h/\partial\text{FAR}$ — the <strong>composition tangent</strong>:</p>
+  <pre class="src"><span class="ln">  </span><span class="fn">h</span>(gasd, 1600.0)   <span class="cm"># dual-carrying gas, PLAIN temperature</span></pre>
+  <pre class="out">Dual{:demo}(216890.07, <span class="gd">-4.0069e7</span>)
+        └─ value = h          └─ partials = ∂h/∂FAR  (composition tangent)</pre>
+  <p>This makes sense: $h$ is built from the coefficients, the coefficients depend on FAR, so differentiating the coefficients propagates $\partial h/\partial\text{FAR}$ into the partials slot. Nothing is wrong yet — we fed a <em>plain</em> temperature. The trouble starts when the temperature is <em>also</em> a dual.</p>
+</section>
+
+<!-- ═══════════════ §7 ═══════════════ -->
+<section id="s7">
+  <div class="section-header"><span class="badge">§7</span><h2>The collision — the missing rule, traced live</h2></div>
+  <p>Inside <code>jacobian!</code>, FAR and the temperatures are <em>all</em> seeded in the <strong>same</strong> pass, so they share one tag (<code>:demo</code> here). A hot-section kernel ends up calling <code>h(gas, T)</code> where <strong>both</strong> the gas and the temperature carry <code>Dual{:demo}</code>. Which method runs? The only matching one is line 35 from §5 — written for a Dual temperature on a <em>constant</em> gas. Let us trace it by hand, with the real numbers:</p>
+  <div class="card gray">
+    <pre class="src" style="margin-bottom:0.6rem;"><span class="cm"># the rule that fires (line 35):</span>
+<span class="fn">h</span>(gas, d::Dual{Tag}) = Dual{Tag}( <span class="hl">h(gas, value(d))</span> , cp(gas, value(d)) * partials(d) )</pre>
+    <div class="step"><div class="n">1</div><div class="b"><code>value(d)</code> strips the temperature's slope → <code>1600.0</code>, a plain <code>Float64</code>. So far so good.</div></div>
+    <div class="step"><div class="n">2</div><div class="b">But <code>h(gas, 1600.0)</code> — from §6 — is <strong>already a <code>Dual{:demo}</code></strong>, because <code>gas</code> carries dual coefficients. The value slot is being filled with a dual number, not a plain number.</div></div>
+    <div class="step"><div class="n">3</div><div class="b">Likewise <code>cp(gas, 1600.0)</code> is a <code>Dual{:demo}</code>, so the partials slot is a dual too.</div></div>
+    <div class="step"><div class="n">4</div><div class="b">The rule wraps both in <em>another</em> <code>Dual{:demo}</code> — same tag. We get a <code>Dual{:demo}</code> whose value is itself a <code>Dual{:demo}</code>: the malformed same-tag nesting §4 warned about.</div></div>
+  </div>
+  <p>Here is the actual type that comes back — not a hypothetical, the real run:</p>
+  <pre class="src"><span class="ln">  </span>Td = ForwardDiff.Dual{<span class="hl">:demo</span>}(1600.0, 1.0)   <span class="cm"># temperature, same tag as FARd</span>
+<span class="ln">  </span><span class="fn">typeof</span>( <span class="fn">h</span>(gasd, Td) )</pre>
+  <pre class="out">ForwardDiff.Dual{:demo, <span class="em">ForwardDiff.Dual{:demo, Float64, 1}</span>, 1}
+                        └──────── value slot is a SAME-TAG Dual ────────┘   ← nested</pre>
+  <div class="card red">
+    <h3>Why this breaks the Jacobian</h3>
+    <p>PowerCycles' <code>jacobian!</code> reads the <code>partials</code> off each residual row and stores them as <code>Float64</code> entries of the sparse Jacobian. With a normal single-layer dual that partials is a <code>Float64</code> — fine. With this nested dual the partials slot is itself a <code>Dual</code>, so the scatter tries <code>Float64(::Dual)</code> and throws. The derivative information is technically all in there, just wrapped one layer too deep for the matrix to hold.</p>
+  </div>
+  <div class="keypoint">
+    <span class="dtag">the missing piece, stated plainly</span>
+    <p>IGT's extension has a rule for a Dual <em>temperature</em> on a constant gas (line 35), and — further down — it has full rules for a Dual-carrying <em>gas</em> in the <strong>inversions</strong> like <code>T_from_h</code> (lines 114–147, methods typed <code>FrozenGas{&lt;:Dual{Tag}}</code>). What it does <strong>not</strong> have is a rule for a Dual-carrying gas at a Dual temperature in the <strong>forward properties</strong> <code>h</code>, <code>s0</code>, <code>cp</code>, <code>gamma</code>. With no such method, dispatch falls to line 35 — the constant-gas rule — and that is the one that nests.</p>
+  </div>
+</section>
+
+<!-- ═══════════════ §8 ═══════════════ -->
+<section id="s8">
+  <div class="section-header"><span class="badge">§8</span><h2>What the rule <em>should</em> return — the total derivative</h2></div>
+  <p>When both the gas and the temperature move with the same seed, $h$ changes for <strong>two</strong> reasons at once, and calculus says you add them. With $\xi$ the thing being differentiated (FAR here), the chain rule gives the <strong>total derivative</strong>:</p>
+  <div class="eq-block purple-eq"><p>$$\frac{dh}{d\xi} \;=\; \underbrace{\frac{\partial h}{\partial T}\,\frac{dT}{d\xi}}_{\substack{\text{temperature tangent}\\ =\ c_p\,\dot T}} \;+\; \underbrace{\sum_i \frac{\partial h}{\partial a_i}\,\frac{da_i}{d\xi}}_{\substack{\text{composition tangent}\\ \text{(coefficients } a_i \text{ move)}}}$$</p></div>
+  <p>The first term is the one line 35 already knows ($c_p\dot T$). The second term — the coefficients $a_i$ shifting because the composition depends on FAR — is the one the constant-gas rule simply has no slot for. And crucially, the second term <em>is</em> exactly the partials of <code>h(gasd, 1600.0)</code> we saw in §6. Both terms are single numbers; their sum is a single number; the answer should be a plain single-layer dual.</p>
+  <p>We can watch the two terms add up with the real values — and check the total against a finite difference:</p>
+  <pre class="out">  composition tangent  ∂h/∂FAR   = <span class="gd">-4.0069e7</span>     <span class="em"># from h(gasd, 1600.0), §6</span>
+  temperature tangent  cp·Ṫ      = +1290.98       <span class="em"># cp(1600)·1</span>
+  ───────────────────────────────────────────
+  total  (what the partials SHOULD be) = -4.00679e7
+  central finite-difference check      = -4.00679e7   ✓ match to ~1e-11</pre>
+  <p>The composition tangent outweighs the temperature tangent by about <strong>31&nbsp;000×</strong> here — so getting it right is not a rounding nicety; it carries essentially the entire derivative. (This is the same effect that, in the burner row, flips the Jacobian's sign versus a composition-frozen guess — see P7 §5.)</p>
+</section>
+
+<!-- ═══════════════ §9 ═══════════════ -->
+<section id="s9">
+  <div class="section-header"><span class="badge">§9</span><h2>Two ways to get the single-layer answer</h2></div>
+
+  <div class="card teal">
+    <h3>Fix A — the shim PowerCycles ships today</h3>
+    <p>Remember from §5 that the base package is <em>generic over <code>Real</code></em>: if we bypass the analytic line-35 rule and force the <strong>generic</strong> polynomial method, ForwardDiff just runs the polynomial in ordinary dual arithmetic — and that arithmetic naturally produces the combined, single-layer tangent (both terms of §8, added by the product rule, no nesting). Julia's <code>invoke</code> calls a specific, less-specialized method on purpose. That is the whole trick:</p>
+  </div>
+  <pre class="src"><span class="ln">86</span><span class="cm"># force IGT's generic Real method, sidestepping the Dual-target analytic rule</span>
+<span class="ln">86</span>@inline <span class="fn">tpg_h</span>(gas::FrozenGas, T)  = invoke(<span class="fn">h</span>,   Tuple{FrozenGas,<span class="hl">Real</span>}, gas, T)
+<span class="ln">87</span>@inline <span class="fn">tpg_s0</span>(gas::FrozenGas, T) = invoke(<span class="fn">s0</span>,  Tuple{FrozenGas,<span class="hl">Real</span>}, gas, T)
+<span class="ln">88</span>@inline <span class="fn">tpg_cp</span>(gas::FrozenGas, T) = invoke(<span class="fn">c_p</span>, Tuple{FrozenGas,<span class="hl">Real</span>}, gas, T)</pre>
+  <p class="src-caption">src/thermo/cpg.jl, lines 86–88 — the consolidated tpg_* shims</p>
+  <p>Run the shim on the exact collision input from §7 and the nesting is gone — a clean single-layer dual whose partials matches the finite-difference total:</p>
+  <pre class="out">  invoke(h, Tuple{FrozenGas,Real}, gasd, Td)
+    = Dual{:demo}(216890.07, <span class="gd">-4.00679e7</span>)
+      type = Dual{:demo, <span class="gd">Float64</span>, 1}        ← single layer ✓
+      partials -4.00679282e7  vs  FD -4.00679282e7  ✓</pre>
+  <div class="callout">
+    <strong>The sharp edge — why <code>tpg_sos</code> and <code>tpg_pr</code> need more.</strong> <code>invoke</code> only redirects the <em>outer</em> call. Enthalpy and entropy are direct polynomials, so forcing their generic method is enough. But speed of sound and the isentropic pressure ratio are <em>built from</em> $c_p$, $\gamma$, $s_0$ — and the generic versions of those re-call the property functions, which hit the analytic line-32–39 rules again and <strong>re-nest</strong>. So the shims rebuild those two from the <code>cp</code>/<code>s0</code> primitives (each already routed through <code>invoke</code>) using their closed forms:</p>
+  </div>
+  <pre class="src"><span class="ln">90</span>@inline <span class="kw">function</span> <span class="fn">tpg_sos</span>(gas::FrozenGas, T)
+<span class="ln">91</span>    cp = <span class="fn">tpg_cp</span>(gas, T); Rg = <span class="fn">R</span>(gas)
+<span class="ln">93</span>    <span class="kw">return</span> sqrt(cp / (cp - Rg) * Rg * T)        <span class="cm"># √(γ·R·T),  γ = cp/(cp−R)</span>
+<span class="ln">94</span><span class="kw">end</span>
+<span class="ln">96</span>@inline <span class="kw">function</span> <span class="fn">tpg_pr</span>(gas::FrozenGas, T1, T2)
+<span class="ln">97</span>    Rg = <span class="fn">R</span>(gas)
+<span class="ln">98</span>    <span class="kw">return</span> exp((<span class="fn">tpg_s0</span>(gas, T2) - <span class="fn">tpg_s0</span>(gas, T1)) / Rg)   <span class="cm"># P2/P1, isentropic</span>
+<span class="ln">99</span><span class="kw">end</span></pre>
+  <p class="src-caption">src/thermo/cpg.jl, lines 90–99</p>
+
+  <div class="card green">
+    <h3>Fix B — the clean upstream method (what would retire the shims)</h3>
+    <p>The shim lives in PowerCycles and works around IGT from the outside. The tidy fix is a new method <em>inside</em> IGT that handles the collision directly — and the remarkable part is that <strong>the author already wrote this exact pattern</strong>, just for the inversions. Here is IGT's existing rule for a Dual-carrying gas in <code>T_from_h</code>:</p>
+  </div>
+  <pre class="src"><span class="ln">114</span><span class="kw">function</span> <span class="fn">_T_from_h_dualgas</span>(gas::FrozenGas, hspec; Tguess)
+<span class="ln">116</span>    gas0  = _value_gas(gas)                  <span class="cm"># the plain-Float64 value-part gas</span>
+<span class="ln">117</span>    Tstar = T_from_h(gas0, value(hspec); ...)  <span class="cm"># solve on the value rail</span>
+<span class="ln">118</span>    ∂comp = _tangent( <span class="hl">h(gas, Tstar)</span> )      <span class="cm"># composition term: ONE dual eval at float T*</span>
+<span class="ln">119</span>    ∂targ = _tangent(hspec)
+<span class="ln">120</span>    Dual{Tag}(Tstar, _minus(∂targ, ∂comp) / cp(gas0, Tstar))   <span class="cm"># single layer</span>
+<span class="ln">121</span><span class="kw">end</span></pre>
+  <p class="src-caption">~/.../IdealGasThermoForwardDiffExt.jl, lines 114–121 — the Dual-gas rule that already exists for inversions</p>
+  <p>It value-strips the gas (<code>_value_gas</code>), does the heavy work on plain <code>Float64</code>, and grabs the composition tangent with a single dual evaluation at the float temperature (<code>_tangent(h(gas, Tstar))</code>). The missing forward-property rule is the <em>same recipe</em>, even simpler — no Newton solve:</p>
+  <pre class="src"><span class="ln">  </span><span class="cm"># PROPOSED: the rule IGT is missing — h of a Dual gas at a Dual temperature</span>
+<span class="ln">  </span><span class="kw">function</span> <span class="fn">h</span>(gas::FrozenGas{<span class="hl">&lt;:Dual{Tag}</span>}, d::Dual{Tag}) where {Tag}
+<span class="ln">  </span>    gas0 = _value_gas(gas)
+<span class="ln">  </span>    Tv   = value(d)
+<span class="ln">  </span>    ∂T   = cp(gas0, Tv) * partials(d)     <span class="cm"># temperature tangent   ∂h/∂T · Ṫ</span>
+<span class="ln">  </span>    ∂c   = partials( h(gas, Tv) )         <span class="cm"># composition tangent   Σ ∂h/∂aᵢ · ȧᵢ</span>
+<span class="ln">  </span>    Dual{Tag}( h(gas0, Tv), <span class="hl">∂T + ∂c</span> )   <span class="cm"># ONE layer; the §8 total derivative</span>
+<span class="ln">  </span><span class="kw">end</span></pre>
+  <p>The two added lines, <code>∂T</code> and <code>∂c</code>, are precisely the two terms of the §8 total derivative; their sum goes in a single partials slot. Add the analogues for <code>s0</code>, <code>cp</code>, <code>gamma</code>, <code>speed_of_sound</code>, <code>pressure_ratio</code>, and the <code>tpg_*</code> shims become unnecessary — every TPG kernel could call IGT's normal functions directly.</p>
+</section>
+
+<!-- ═══════════════ §10 ═══════════════ -->
+<section id="s10">
+  <div class="section-header"><span class="badge">§10</span><h2>The wishlist, now earned</h2></div>
+  <p>With the mechanism in hand, the three requests from P7 §5 read plainly:</p>
+  <div class="card purple">
+    <ol style="margin:0.2rem 0 0 1.1rem;line-height:1.7;">
+      <li><strong>Combined-tangent rules for <code>h</code> and <code>s0</code></strong> on <code>FrozenGas{&lt;:Dual{Tag}}</code> at a <code>Dual{Tag}</code> — the single-layer total derivative of §8 (the proposed method above). These two are the primitives.</li>
+      <li><strong>Direct rules for the derived properties</strong> <code>speed_of_sound</code>, <code>gamma</code>, <code>pressure_ratio</code> — so callers need not rebuild them from <code>cp</code>/<code>s0</code> (the part <code>invoke</code> alone cannot fix, §9).</li>
+      <li><strong>Or simply a guard:</strong> have the existing line-35 rules detect a Dual-carrying gas and fall through to the generic <code>Real</code> path — a one-line dispatch fix that makes the shims unnecessary at zero accuracy cost (just foregoing the analytic-speed win).</li>
+    </ol>
+  </div>
+  <p style="margin-top:1rem;">None of this changed any <em>answer</em>: the shims already give the exact single-layer derivative (matching finite differences to ~$10^{-11}$), the TPG turbojet solves zero-allocation, and the Jacobian is correct. The gap is one of <em>ergonomics and locality</em> — five shim functions in PowerCycles standing in for a rule that, by the evidence of its own inversion methods, IdealGasThermo is one short, familiar step from providing.</p>
+  <p style="font-size:0.86rem;color:var(--muted);">← Back to <a href="07_tpg_ladder.html">P7 — the TPG Ladder</a>, where these shims appear in context (§5, "the Dual story").</p>
+</section>
+
+</div>
+
+<footer>
+  <strong>PowerCycles.jl</strong> — Dual numbers, tags, and the IdealGasThermo AD gap. Companion to the P7 TPG-ladder walkthrough.<br>
+  All code excerpts and numeric outputs reproduced from IdealGasThermo v1.1.0 and src/thermo/cpg.jl.
+</footer>
+
+</body>
+</html>

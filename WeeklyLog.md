@@ -171,3 +171,20 @@ I chose a paper by Petters & Kreidenweis on the hygroscopic growth of particles 
 I tried this on a couple different models. The best one so far has been `gpt-5-mini`:
 ![[figure1_recreated.png]]Sonnet did better: 
 ![[fig1_sonnet.png]]
+
+I think the demo went pretty well actually! I forgot to record the agent session so instead I had pi running gpt5.5 to [recreate the session from the logs and create a video.](https://ai-for-engineering-research.github.io/pilot-class-repo/session-5/Agentic%20Scientific%20Reproduction%20Demo/Agentic%20Scientific%20Reproduction%20Demo.html)
+
+## Week 4
+
+### Learning by doing
+
+*2026-06-19 (Fri, 19th Jun)*
+
+ I've always toyed around with the idea of having auto differentiation be a central part of speeding some of these types of calculations where you need to calculate Jacobians routinely to solve non-linear systems e.g., via a Newton solve.  I've implemented some of these in the past but with varied success - one of the postdocs a couple years go tried to implement an autodiff approach in TASOPT.jl and had little success. I decided this is the opportunity to actually work with the model to learn why it works some of the times and what the pitfalls are because I didn't *really* understand it well enough to make those decisions.
+
+ So I started out basic, with just making sure all the thermodynamic calculations were AD compatible which in Julia just means the types that your functions accept must be `Reals` instead of `Float64s` and then in theory you should be able to parse in `Dual` types, which can then just give you the derivatives automatically at least in forward mode.  One of the first hurdles I hit was: how do you do this through solver loops? For example if you want to calculate what the temperature of a gas is, given that you know its enthalpy, then you're basically doing an inversion of a polynomial, for example. You could do this with a Newton solver. If you wanted to get the derivatives of the enthalpy with respect to some other design variable like the amount of work extracted in a turbine, then you could just pass those partials into the enthalpy that you are setting into your "inversion function" and then extract what that means in terms of the temperature derivative to those values.  So I did that and discovered that actually  there is a slightly more efficient way of doing this using the implicit function theorem. 
+
+ Of course the first time I got it to implement this approach and then used it in a simplified example, it didn't really work. It started giving me weird problems and the derivatives weren't actually correct. It turns out there is something called [perturbation confusion](https://mural.maynoothuniversity.ie/id/eprint/566/1/Perturbation.pdf), which I didn't know about, and I decided now is my opportunity/ sign to actually learn about this.
+
+ So in a new session I basically explained to my agent what the problem was, how I would like to approach it, and how I would want it explained to me in a gentle way, starting with the basics using math so that I could follow what is happening and why this is a problem and how to solve it - it came up with this: [Dual numbers and perturbation confusion](/prashanth/assets/08_dual_numbers_and_the_igt_gap.html)
+
