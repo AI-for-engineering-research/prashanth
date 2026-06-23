@@ -1,0 +1,896 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PowerCycles.jl — Newton System Explorer</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI+WdtXRGWt2kTvGFasHpSy3SV" crossorigin="anonymous">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js" integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG+vnGctmUb0ZY0l8" crossorigin="anonymous"></script>
+<style>
+:root{
+  --bg:#0c1018; --panel:#141b27; --panel2:#1a2333; --line:#26344a; --line2:#33455f;
+  --ink:#e8edf5; --ink-dim:#9fb0c8; --ink-faint:#677791;
+  --cold:#4ba3e8; --cold-d:#1d5d96; --hot:#f08a4b; --hot-d:#a8542a;
+  --perf:#a87cf0; --perf-d:#6a47a8; --far:#ffd24a; --good:#5ad6a0;
+  --neutral:#7b8aa3; --neutral-d:#4a5a73;
+  --shadow:0 8px 28px rgba(0,0,0,.45);
+  --mono:'SF Mono',ui-monospace,'JetBrains Mono',Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:radial-gradient(1200px 700px at 75% -10%,#16202f 0%,var(--bg) 55%) fixed;
+  color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,Roboto,sans-serif;
+  line-height:1.55; font-size:14px; -webkit-font-smoothing:antialiased;
+}
+a{color:var(--cold)}
+.wrap{max-width:1500px;margin:0 auto;padding:28px 26px 80px}
+header.hero{margin-bottom:22px}
+.kicker{font-family:var(--mono);font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:8px}
+h1{font-size:30px;line-height:1.12;margin:0 0 6px;font-weight:740;letter-spacing:-.01em}
+h1 .accent{background:linear-gradient(90deg,var(--cold),var(--hot) 70%);-webkit-background-clip:text;background-clip:text;color:transparent}
+.lede{color:var(--ink-dim);max-width:980px;font-size:14.5px}
+.lede b{color:var(--ink)}
+.howto{margin-top:12px;padding:11px 15px;background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--cold);border-radius:9px;color:var(--ink-dim);font-size:13px;max-width:980px}
+.howto b{color:var(--ink)}
+
+/* ---- station strip ---- */
+.strip{display:flex;gap:0;align-items:stretch;margin:24px 0 18px;flex-wrap:wrap}
+.st{position:relative;flex:1 1 0;min-width:118px;background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:11px 12px 12px;cursor:pointer;transition:transform .14s,box-shadow .14s,border-color .14s;margin:0 5px}
+.st:hover,.st.on{transform:translateY(-3px);box-shadow:var(--shadow);border-color:var(--line2)}
+.st .num{position:absolute;top:8px;right:10px;font-family:var(--mono);font-size:11px;color:var(--ink-faint)}
+.st .nm{font-size:11.5px;font-weight:650;letter-spacing:.01em;margin-bottom:7px;padding-right:18px}
+.st .row{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:var(--ink-dim);margin-top:1px}
+.st .row b{color:var(--ink);font-weight:600}
+.st.cold{border-top:3px solid var(--cold)}
+.st.hot{border-top:3px solid var(--hot)}
+.st.neutral{border-top:3px solid var(--neutral)}
+.st .gasdot{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px;vertical-align:middle}
+.st.cold .gasdot{background:var(--cold)} .st.hot .gasdot{background:var(--hot)} .st.neutral .gasdot{background:var(--neutral)}
+.arrow{align-self:center;color:var(--ink-faint);font-size:18px;margin:0 -1px;flex:0 0 auto}
+
+/* ---- layout ---- */
+.main{display:grid;grid-template-columns:minmax(0,1fr) 392px;gap:22px;align-items:start}
+@media(max-width:1180px){.main{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:13px;box-shadow:var(--shadow)}
+.card-h{padding:13px 18px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:12px}
+.card-h h2{margin:0;font-size:14px;font-weight:680;letter-spacing:.01em}
+.card-h .sub{font-family:var(--mono);font-size:11px;color:var(--ink-faint)}
+
+/* ---- matrix ---- */
+.matrix-pad{padding:14px 16px 18px;overflow:auto}
+.grid-host{position:relative;display:inline-block}
+table.spm{border-collapse:collapse;font-family:var(--mono);user-select:none}
+table.spm td,table.spm th{padding:0;text-align:center}
+.cell{width:19px;height:19px;position:relative}
+.cell .dot{position:absolute;inset:3px;border-radius:3px;transition:transform .1s ease, box-shadow .1s ease, opacity .1s}
+.cell.nz{cursor:pointer}
+/* full-cell forgiving hover halo (not just the dot) */
+.cell.nz:hover{background:rgba(255,255,255,.05);border-radius:5px}
+.cell.nz.diag .dot{outline:1px solid rgba(255,255,255,.16)}
+.cell.cold .dot{background:var(--cold)} .cell.hot .dot{background:var(--hot)} .cell.perf .dot{background:var(--perf)}
+.cell.neutral .dot{background:var(--neutral)}
+.cell.farcol .dot{background:var(--far)}
+/* redundant (non-colour) regime channel — survives colour-blindness:
+   cold = plain square; hot = inner notch (radial cut); perf = centre dot; FAR = ring */
+.cell.hot .dot{background:radial-gradient(circle at 50% 50%,transparent 0 2.2px,var(--hot) 2.2px)}
+.cell.perf .dot{background:var(--perf);box-shadow:inset 0 0 0 2.6px rgba(12,16,24,.85)}
+.cell.farcol .dot{background:transparent;border-radius:50%;box-shadow:inset 0 0 0 2.3px var(--far)}
+/* persistent faint band down the cross-cutting highlight column, visible at rest */
+.colh.farcol,td.cell.farband{background:rgba(255,210,74,.07)}
+.colh.farcol{border-top-left-radius:5px;border-top-right-radius:5px}
+.colh{height:96px;vertical-align:bottom}
+.colh .lbl{writing-mode:vertical-rl;transform:rotate(180deg);font-size:11.5px;color:var(--ink-dim);white-space:nowrap;cursor:pointer;padding-bottom:4px;line-height:1;transition:color .1s}
+.colh .lbl:hover,.colh.on .lbl{color:var(--ink)}
+.colh .lbl.farlbl{color:var(--far);font-weight:700}
+.rowh{text-align:right;padding-right:8px !important;white-space:nowrap;font-size:11.5px;color:var(--ink-dim);cursor:pointer;transition:color .1s}
+.rowh:hover,.rowh.on{color:var(--ink)}
+.rnum{color:var(--ink-faint);font-size:9.5px;margin-right:5px}
+.corner{font-size:9.5px;color:var(--ink-faint);text-align:right !important;padding-right:8px !important;vertical-align:bottom;padding-bottom:4px}
+/* keyboard focus affordance + click-to-pin sticky ring */
+.cell.nz:focus-visible,.rowh:focus-visible,.colh:focus-visible{outline:2px solid #fff;outline-offset:-1px;border-radius:4px}
+.colh:focus-visible{outline-offset:-2px}
+table.spm.has-focus .cell.lit.sticky .dot,table.spm .cell.nz.sticky .dot{box-shadow:0 0 0 2px rgba(255,255,255,.6),0 0 12px 2px rgba(255,255,255,.28)}
+.rowh.sticky,.colh.sticky .lbl{text-decoration:underline;text-underline-offset:3px}
+/* one-shot attract pulse advertising the cross-coupling on load */
+@keyframes farpulse{0%,100%{background:rgba(255,210,74,.07)}45%{background:rgba(255,210,74,.30)}}
+.farband-pulse td.cell.farband,.farband-pulse .colh.farcol{animation:farpulse 1.1s ease-in-out 2}
+@media(prefers-reduced-motion:reduce){.farband-pulse td.cell.farband,.farband-pulse .colh.farcol{animation:none}}
+/* dim/emphasis states */
+table.spm.has-focus .cell .dot{opacity:.16}
+table.spm.has-focus .cell.lit .dot{opacity:1;transform:scale(1.18)}
+table.spm.has-focus .cell.lit.pin .dot{box-shadow:0 0 0 2px rgba(255,255,255,.55),0 0 11px 2px rgba(255,255,255,.25)}
+table.spm.has-focus .rowh{color:var(--ink-faint)}
+table.spm.has-focus .rowh.lit{color:#fff;font-weight:700}
+table.spm.has-focus .colh .lbl{color:var(--ink-faint)}
+table.spm.has-focus .colh.lit .lbl{color:#fff;font-weight:700}
+/* component block tints behind cells */
+.bandrow{position:absolute;left:0;pointer-events:none;border-radius:4px;opacity:.05;z-index:0}
+.gridoverlay{position:absolute;pointer-events:none;z-index:3}
+.blockbox{position:absolute;border:1.5px dashed;border-radius:6px;pointer-events:none;opacity:.0;transition:opacity .15s;z-index:4}
+.blockbox.show{opacity:.85}
+
+/* ---- side card ---- */
+.side{position:sticky;top:18px;display:flex;flex-direction:column;gap:16px}
+.scard{background:var(--panel);border:1px solid var(--line);border-radius:13px;box-shadow:var(--shadow);overflow:hidden}
+.scard .top{padding:14px 16px 12px;border-bottom:1px solid var(--line)}
+.tag{display:inline-block;font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;padding:3px 8px;border-radius:20px;border:1px solid var(--line2);color:var(--ink-dim);margin:0 5px 5px 0}
+.tag.cold{color:var(--cold);border-color:var(--cold-d);background:rgba(75,163,232,.08)}
+.tag.hot{color:var(--hot);border-color:var(--hot-d);background:rgba(240,138,75,.08)}
+.tag.perf{color:var(--perf);border-color:var(--perf-d);background:rgba(168,124,240,.08)}
+.tag.neutral{color:var(--neutral);border-color:var(--neutral-d);background:rgba(123,138,163,.08)}
+.tag.r{color:var(--ink);border-color:var(--line2);font-weight:600}
+.tag.far{color:#1c130a;background:var(--far);border-color:var(--far);font-weight:700}
+.scard h3{margin:6px 0 2px;font-size:17px;font-family:var(--mono);font-weight:600;letter-spacing:-.01em}
+.scard .closes{font-size:12.5px;color:var(--ink-dim)}
+.scard .closes b{color:var(--good);font-family:var(--mono)}
+.eqbox{padding:14px 12px;background:var(--panel2);border-bottom:1px solid var(--line);overflow-x:auto;text-align:center;font-size:14px;color:#eef3fb}
+.scard .body{padding:13px 16px 16px}
+.meaning{font-size:13px;color:var(--ink-dim);margin:0 0 14px}
+.sec-lbl{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-faint);margin:14px 0 7px}
+.sec-lbl:first-child{margin-top:0}
+.term{padding:8px 10px;border:1px solid var(--line);border-radius:8px;margin-bottom:7px;background:rgba(255,255,255,.012)}
+.term .nmrole{display:flex;align-items:baseline;gap:8px;margin-bottom:2px}
+.term .vid{font-family:var(--mono);font-size:12.5px;font-weight:650;color:var(--ink)}
+.term .vid.is-far{color:var(--far)}
+.term .badge{font-family:var(--mono);font-size:9.5px;padding:1px 6px;border-radius:5px;background:rgba(90,214,160,.12);color:var(--good);border:1px solid rgba(90,214,160,.3)}
+.term .role{font-size:12px;color:var(--ink-dim)}
+.conn{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-family:var(--mono);font-size:11px;padding:4px 8px;border-radius:7px;background:var(--panel2);border:1px solid var(--line2);color:var(--ink-dim);cursor:pointer;transition:.12s}
+.chip:hover{color:#fff;border-color:var(--ink-faint);background:#222e42}
+.chip.far{color:var(--far);border-color:var(--far)}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;font-size:12.5px}
+.kv dt{color:var(--ink-faint);font-family:var(--mono);font-size:11px}
+.kv dd{margin:0;color:var(--ink);font-family:var(--mono)}
+
+/* default / stats panel */
+.default-pane .body{padding:14px 16px 18px}
+.statgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+.stat{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+.stat .v{font-family:var(--mono);font-size:19px;font-weight:600;color:#fff;line-height:1.1}
+.stat .v.cold{color:var(--cold)} .stat .v.hot{color:var(--hot)} .stat .v.good{color:var(--good)}
+.stat .l{font-size:10.5px;color:var(--ink-faint);margin-top:3px;font-family:var(--mono);letter-spacing:.04em}
+.legend{display:flex;flex-direction:column;gap:6px}
+.lg{display:flex;align-items:center;gap:9px;font-size:12.5px;color:var(--ink-dim)}
+.lg .sw{width:14px;height:14px;border-radius:4px;flex:0 0 auto;position:relative}
+/* legend swatches mirror the matrix glyphs (redundant non-colour channel) */
+.lg .sw.hot{background:radial-gradient(circle at 50% 50%,transparent 0 2.5px,var(--hot) 2.5px)}
+.lg .sw.perf{background:var(--perf);box-shadow:inset 0 0 0 2.8px var(--panel2)}
+.lg .sw.neutral{background:var(--neutral)}
+.lg .sw.far{background:transparent;border-radius:50%;box-shadow:inset 0 0 0 2.6px var(--far)}
+.farcard{margin-top:14px;padding:12px 13px;border-radius:10px;background:linear-gradient(180deg,rgba(255,210,74,.10),rgba(255,210,74,.02));border:1px solid rgba(255,210,74,.32)}
+.farcard h4{margin:0 0 5px;font-size:12.5px;color:var(--far);font-family:var(--mono);letter-spacing:.03em}
+.farcard p{margin:0 0 8px;font-size:12px;color:var(--ink-dim)}
+.farcard .conn .chip{border-color:rgba(255,210,74,.4);color:#f3e2b0}
+.foot{margin-top:26px;color:var(--ink-faint);font-size:11.5px;font-family:var(--mono);text-align:center}
+.density-bar{height:7px;border-radius:4px;background:var(--panel2);overflow:hidden;margin-top:6px;border:1px solid var(--line)}
+.density-bar>i{display:block;height:100%;width:8.9%;background:linear-gradient(90deg,var(--cold),var(--hot))}
+.cmpbar{display:flex;gap:5px;margin-top:6px;flex-wrap:wrap}
+.cmpbtn{font-family:var(--mono);font-size:10.5px;padding:4px 9px;border-radius:20px;border:1px solid var(--line2);background:var(--panel2);color:var(--ink-dim);cursor:pointer;transition:.12s}
+.cmpbtn:hover{color:#fff}
+.cmpbtn.cold{border-color:var(--cold-d)} .cmpbtn.hot{border-color:var(--hot-d)} .cmpbtn.perf{border-color:var(--perf-d)}
+.cmpbtn.neutral{border-color:var(--neutral-d)}
+.cmpbtn.active{color:#0c1018;font-weight:700}
+.cmpbtn.cold.active{background:var(--cold);border-color:var(--cold)}
+.cmpbtn.hot.active{background:var(--hot);border-color:var(--hot)}
+.cmpbtn.perf.active{background:var(--perf);border-color:var(--perf)}
+.cmpbtn.neutral.active{background:var(--neutral);border-color:var(--neutral)}
+.hint{font-size:11px;color:var(--ink-faint);margin-top:10px;font-style:italic}
+.dims{font-size:12px;color:var(--ink-dim);margin:0 0 12px;padding:9px 12px;background:var(--panel2);border:1px solid var(--line);border-radius:9px;line-height:1.5}
+.dims b{color:var(--ink)}
+kbd{font-family:var(--mono);font-size:10.5px;padding:1px 5px;border:1px solid var(--line2);border-bottom-width:2px;border-radius:5px;background:#0e141e;color:var(--ink);margin:0 1px}
+.pinbanner{display:none;align-items:center;gap:8px;font-family:var(--mono);font-size:11px;color:var(--good);margin-bottom:10px}
+.pinbanner.show{display:flex}
+.pinbanner button{font-family:var(--mono);font-size:10.5px;padding:2px 8px;border-radius:6px;border:1px solid var(--line2);background:var(--panel2);color:var(--ink-dim);cursor:pointer}
+.pinbanner button:hover{color:#fff;border-color:var(--ink-faint)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <div class="kicker" id="kicker"></div>
+  <h1 id="h1"></h1>
+  <p class="lede" id="lede"></p>
+  <div class="howto" id="howto"></div>
+</header>
+
+<!-- gas-path station strip -->
+<div class="strip" id="strip"></div>
+
+<div class="main">
+  <!-- matrix -->
+  <section class="card">
+    <div class="card-h">
+      <h2 id="matrixtitle"></h2>
+      <span class="sub" id="matsub"></span>
+    </div>
+    <div class="matrix-pad">
+      <div class="dims">Inspect any of the things below — <b>row</b>, <b>column</b>, <b>cell</b>, <b>station</b> (strip above) or <b>component</b> (pills below). Hover or focus to preview; <b>click / Enter</b> to pin so you can read the side card; click again or <kbd>Esc</kbd> to release. Keyboard: <kbd>Tab</kbd> through cells and headers.</div>
+      <div class="pinbanner" id="pinbanner" role="status"><span>📌 pinned — the side card is held; chips are navigable</span><button id="unpin" type="button">release (Esc)</button></div>
+      <div class="grid-host" id="gridhost"></div>
+      <div class="cmpbar" id="cmpbar"></div>
+      <div class="hint" id="hint"></div>
+    </div>
+  </section>
+
+  <!-- side -->
+  <aside class="side">
+    <div id="sidecard"></div>
+  </aside>
+</div>
+
+<div class="foot" id="foot"></div>
+</div>
+
+<script>
+/* ============================================================= *
+ *  DATA INJECTION POINT                                          *
+ *  The Julia generator replaces the comment below with a JS      *
+ *  object literal. Until then it defaults to an empty object so  *
+ *  the template parses standalone.                               *
+ * ============================================================= */
+const DATA = {"meta":{"title":"Turbojet Newton System|design point","n":30,"nnz":80,"density":8.88888888888889},"sys":{"n":30,"unknowns":[{"id":"Tt0","unit":"K","nominal":250.0,"scale":1000.0,"owner":"ambient","col":1},{"id":"Pt0","unit":"Pa","nominal":36000.0,"scale":100000.0,"owner":"ambient","col":2},{"id":"Tt2","unit":"K","nominal":250.0,"scale":1000.0,"owner":"inlet","col":3},{"id":"Pt2","unit":"Pa","nominal":36000.0,"scale":100000.0,"owner":"inlet","col":4},{"id":"Tt3","unit":"K","nominal":550.0,"scale":1000.0,"owner":"compressor","col":5},{"id":"Pt3","unit":"Pa","nominal":430000.0,"scale":100000.0,"owner":"compressor","col":6},{"id":"Tt4","unit":"K","nominal":1600.0,"scale":1000.0,"owner":"burner","col":7},{"id":"Pt4","unit":"Pa","nominal":410000.0,"scale":100000.0,"owner":"burner","col":8},{"id":"FAR","unit":"ratio","nominal":0.025,"scale":0.02,"owner":"burner","col":9},{"id":"mdot4","unit":"kg_per_s","nominal":50.0,"scale":50.0,"owner":"burner","col":10},{"id":"Tt5","unit":"K","nominal":1350.0,"scale":1000.0,"owner":"turbine","col":11},{"id":"Pt5","unit":"Pa","nominal":190000.0,"scale":100000.0,"owner":"turbine","col":12},{"id":"mdot5","unit":"kg_per_s","nominal":50.0,"scale":50.0,"owner":"turbine","col":13},{"id":"Tt8","unit":"K","nominal":1350.0,"scale":1000.0,"owner":"nozzle","col":14},{"id":"Pt8","unit":"Pa","nominal":190000.0,"scale":100000.0,"owner":"nozzle","col":15},{"id":"mdot8","unit":"kg_per_s","nominal":50.0,"scale":50.0,"owner":"nozzle","col":16},{"id":"M8","unit":"ratio","nominal":1.0,"scale":1.0,"owner":"nozzle","col":17},{"id":"T8","unit":"K","nominal":1185.0,"scale":1000.0,"owner":"nozzle","col":18},{"id":"P8","unit":"Pa","nominal":100000.0,"scale":100000.0,"owner":"nozzle","col":19},{"id":"A8","unit":"m2","nominal":0.3,"scale":0.3,"owner":"nozzle","col":20},{"id":"P9","unit":"Pa","nominal":100000.0,"scale":100000.0,"owner":"nozzle","col":21},{"id":"V9","unit":"m_per_s","nominal":650.0,"scale":300.0,"owner":"nozzle","col":22},{"id":"A9","unit":"m2","nominal":0.3,"scale":0.3,"owner":"nozzle","col":23},{"id":"mdot9","unit":"kg_per_s","nominal":50.0,"scale":50.0,"owner":"nozzle","col":24},{"id":"V0","unit":"m_per_s","nominal":240.0,"scale":300.0,"owner":"performance","col":25},{"id":"Fram","unit":"N","nominal":12000.0,"scale":50000.0,"owner":"performance","col":26},{"id":"Fg","unit":"N","nominal":60000.0,"scale":50000.0,"owner":"performance","col":27},{"id":"mdot_air","unit":"kg_per_s","nominal":50.0,"scale":50.0,"owner":"performance","col":28},{"id":"mdot_fuel","unit":"kg_per_s","nominal":1.0,"scale":1.0,"owner":"performance","col":29},{"id":"TSFC","unit":"kg_per_N_s","nominal":4.0e-5,"scale":4.0e-5,"owner":"performance","col":30}],"rows":[{"id":"amb_Tt0","owner":"ambient","units":"K","scale":1000.0,"N":1,"deps":["Tt0"],"row":1},{"id":"amb_Pt0","owner":"ambient","units":"Pa","scale":100000.0,"N":1,"deps":["Pt0"],"row":2},{"id":"inlet_Tt","owner":"inlet","units":"K","scale":1000.0,"N":2,"deps":["Tt2","Tt0"],"row":3},{"id":"inlet_Pt","owner":"inlet","units":"Pa","scale":100000.0,"N":2,"deps":["Pt2","Pt0"],"row":4},{"id":"comp_Pt","owner":"compressor","units":"Pa","scale":100000.0,"N":2,"deps":["Pt3","Pt2"],"row":5},{"id":"comp_Tt","owner":"compressor","units":"K","scale":1000.0,"N":2,"deps":["Tt3","Tt2"],"row":6},{"id":"burn_Pt","owner":"burner","units":"Pa","scale":100000.0,"N":2,"deps":["Pt4","Pt3"],"row":7},{"id":"burn_Tt4","owner":"burner","units":"K","scale":1000.0,"N":1,"deps":["Tt4"],"row":8},{"id":"burn_FAR","owner":"burner","units":"ratio","scale":0.02,"N":3,"deps":["FAR","Tt4","Tt3"],"row":9},{"id":"burn_mdot","owner":"burner","units":"kg_per_s","scale":50.0,"N":3,"deps":["mdot4","mdot_air","FAR"],"row":10},{"id":"shaft_power","owner":"turbine","units":"W","scale":1.0e7,"N":7,"deps":["mdot_air","Tt3","Tt2","mdot4","Tt4","Tt5","FAR"],"row":11},{"id":"turb_Pt","owner":"turbine","units":"Pa","scale":100000.0,"N":5,"deps":["Pt5","Pt4","Tt5","Tt4","FAR"],"row":12},{"id":"turb_mdot","owner":"turbine","units":"kg_per_s","scale":50.0,"N":2,"deps":["mdot5","mdot4"],"row":13},{"id":"noz_Tt8","owner":"nozzle","units":"K","scale":1000.0,"N":2,"deps":["Tt8","Tt5"],"row":14},{"id":"noz_Pt8","owner":"nozzle","units":"Pa","scale":100000.0,"N":2,"deps":["Pt8","Pt5"],"row":15},{"id":"noz_mdot8","owner":"nozzle","units":"kg_per_s","scale":50.0,"N":2,"deps":["mdot8","mdot5"],"row":16},{"id":"noz_M8","owner":"nozzle","units":"ratio","scale":1.0,"N":1,"deps":["M8"],"row":17},{"id":"noz_T8","owner":"nozzle","units":"J_per_kg","scale":200000.0,"N":3,"deps":["T8","Tt8","FAR"],"row":18},{"id":"noz_P8","owner":"nozzle","units":"Pa","scale":100000.0,"N":5,"deps":["P8","Pt8","Tt8","T8","FAR"],"row":19},{"id":"noz_A8","owner":"nozzle","units":"kg_per_s","scale":50.0,"N":5,"deps":["mdot8","P8","T8","A8","FAR"],"row":20},{"id":"noz_P9","owner":"nozzle","units":"Pa","scale":100000.0,"N":2,"deps":["P9","P8"],"row":21},{"id":"noz_V9","owner":"nozzle","units":"m_per_s","scale":300.0,"N":3,"deps":["V9","T8","FAR"],"row":22},{"id":"noz_A9","owner":"nozzle","units":"m2","scale":0.3,"N":2,"deps":["A9","A8"],"row":23},{"id":"noz_mdot9","owner":"nozzle","units":"kg_per_s","scale":50.0,"N":2,"deps":["mdot9","mdot8"],"row":24},{"id":"perf_V0","owner":"performance","units":"m_per_s","scale":300.0,"N":1,"deps":["V0"],"row":25},{"id":"perf_Fram","owner":"performance","units":"N","scale":50000.0,"N":3,"deps":["Fram","mdot_air","V0"],"row":26},{"id":"perf_Fg","owner":"performance","units":"N","scale":50000.0,"N":5,"deps":["Fg","mdot9","V9","P9","A9"],"row":27},{"id":"perf_Fn","owner":"performance","units":"N","scale":50000.0,"N":2,"deps":["Fg","Fram"],"row":28},{"id":"perf_mfuel","owner":"performance","units":"kg_per_s","scale":1.0,"N":3,"deps":["mdot_fuel","FAR","mdot_air"],"row":29},{"id":"perf_TSFC","owner":"performance","units":"dimensionless","scale":4.0e-5,"N":4,"deps":["TSFC","mdot_fuel","Fg","Fram"],"row":30}],"solved_stations":[{"station":0,"Tt":246.8948949591559,"Pt":36353.77904712204,"mdot":58.26648828280117,"FAR":0.0,"Mach":0.8,"Area":null},{"station":2,"Tt":246.8948949591559,"Pt":35990.24125665082,"mdot":58.26648828280117,"FAR":0.0,"Mach":0.5,"Area":0.8430748329356423},{"station":3,"Tt":540.3221551796257,"Pt":431882.8950798098,"mdot":58.26648828280117,"FAR":0.0,"Mach":0.3,"Area":0.15880401924739085},{"station":4,"Tt":1600.0,"Pt":410288.7503258193,"mdot":60.052804153956416,"FAR":0.030657688901469863,"Mach":0.15,"Area":0.5907219450786083},{"station":5,"Tt":1371.6814922901945,"Pt":190365.20352495587,"mdot":60.052804153956416,"FAR":0.030657688901469863,"Mach":0.35,"Area":0.5328466073111147},{"station":8,"Tt":1371.6814922901945,"Pt":190365.20352495587,"mdot":60.052804153956416,"FAR":0.030657688901469863,"Mach":1.0,"Area":0.29675740233495657},{"station":9,"Tt":1371.6814922901945,"Pt":190365.20352495587,"mdot":60.052804153956416,"FAR":0.030657688901469863,"Mach":1.0,"Area":0.29675740233495657}],"solved_scalars":{"FAR":0.030657688901469863,"TSFC":3.5726317423105145e-5,"mdot_air":58.26648828280117,"mdot_fuel":1.7863158711552571,"Fn":50000.0}},"phys":{"rows":[{"id":"amb_Tt0","R":"R1","closes":"Tt0","meaning":"Total temperature at station 0 is the freestream static T0 brought to rest at flight Mach M0 via the TPG isentropic stagnation relation.","latex":"r_{1} = T_{t0} - \\mathrm{stagnation\\_TP}(\\text{COLD\\_GAS},\\,T_0,\\,P_0,\\,M_0)[1] = 0","terms":[{"dep":"Tt0","role":"the unknown this row defines (LHS); equals the cold-gas stagnation total temperature computed from the given T0, P0, M0"}]},{"id":"amb_Pt0","R":"R2","closes":"Pt0","meaning":"Total pressure at station 0 is the freestream static P0 brought to rest at flight Mach M0 via the TPG isentropic stagnation relation.","latex":"r_{2} = P_{t0} - \\mathrm{stagnation\\_TP}(\\text{COLD\\_GAS},\\,T_0,\\,P_0,\\,M_0)[2] = 0","terms":[{"dep":"Pt0","role":"the unknown this row defines (LHS); equals the cold-gas stagnation total pressure computed from the given T0, P0, M0"}]},{"id":"inlet_Tt","R":"R3","closes":"Tt2","meaning":"The inlet is adiabatic, so the compressor-face total temperature equals the freestream total temperature.","latex":"r_{3} = T_{t2} - T_{t0} = 0","terms":[{"dep":"Tt2","role":"the unknown this row defines (LHS); compressor-face total temperature"},{"dep":"Tt0","role":"upstream station-0 total temperature carried through unchanged (adiabatic duct)"}]},{"id":"inlet_Pt","R":"R4","closes":"Pt2","meaning":"The inlet recovers total pressure with a fixed recovery factor pi_d applied to the freestream total pressure.","latex":"r_{4} = P_{t2} - \\pi_d\\,P_{t0} = 0","terms":[{"dep":"Pt2","role":"the unknown this row defines (LHS); compressor-face total pressure"},{"dep":"Pt0","role":"upstream station-0 total pressure scaled by the recovery parameter pi_d"}]},{"id":"comp_Pt","R":"R5","closes":"Pt3","meaning":"The compressor raises total pressure by the specified total-pressure ratio pi_c.","latex":"r_{5} = P_{t3} - \\pi_c\\,P_{t2} = 0","terms":[{"dep":"Pt3","role":"the unknown this row defines (LHS); compressor-exit total pressure"},{"dep":"Pt2","role":"compressor-inlet total pressure multiplied by the pressure-ratio parameter pi_c"}]},{"id":"comp_Tt","R":"R6","closes":"Tt3","meaning":"The compressor-exit total temperature follows from the IGT compress verb: an isentropic temperature rise for pressure ratio pi_c degraded by the isentropic efficiency eta_c, integrated over the variable-cp curve.","latex":"r_{6} = T_{t3} - \\mathrm{compress}(\\text{COLD\\_GAS},\\,T_{t2},\\,\\pi_c;\\,\\eta_s=\\eta_c) = 0","terms":[{"dep":"Tt3","role":"the unknown this row defines (LHS); compressor-exit total temperature"},{"dep":"Tt2","role":"compressor-inlet total temperature, the starting point fed to the compress verb"}]},{"id":"burn_Pt","R":"R7","closes":"Pt4","meaning":"The burner imposes a fixed total-pressure-loss ratio pi_b across the combustor.","latex":"r_{7} = P_{t4} - \\pi_b\\,P_{t3} = 0","terms":[{"dep":"Pt4","role":"the unknown this row defines (LHS); burner-exit total pressure"},{"dep":"Pt3","role":"burner-inlet total pressure scaled by the loss parameter pi_b"}]},{"id":"burn_Tt4","R":"R8","closes":"Tt4","meaning":"Closure row pinning the burner-exit total temperature to the design target Tt4_target; given Tt4 and Tt3, the FAR row then yields FAR.","latex":"r_{8} = T_{t4} - T_{t4,\\text{target}} = 0","terms":[{"dep":"Tt4","role":"the unknown this row defines (LHS); pinned to the parameter Tt4_target"}]},{"id":"burn_FAR","R":"R9","closes":"FAR","meaning":"Formation-inclusive adiabatic energy balance per kg of inlet air defining the fuel-air ratio FAR: cold-air enthalpy plus fuel chemical-plus-sensible enthalpy equals the products enthalpy at Tt4 (no explicit LHV, no eta_b; ηburn=1).","latex":"r_{9} = h(\\text{COLD\\_GAS},\\,T_{t3}) + \\mathrm{FAR}\\cdot h(\\text{fuel},\\,T_{fuel}) - (1+\\mathrm{FAR})\\,h\\!\\left(\\mathrm{products}(sys,\\mathrm{FAR}),\\,T_{t4}\\right) = 0","terms":[{"dep":"FAR","role":"the unknown this row defines; Dual-carrying, it enters the FAR*h_fuel term, the (1+FAR) factor, and the products(sys,FAR) composition tangent"},{"dep":"Tt4","role":"burner-exit total temperature at which the hot products enthalpy is evaluated"},{"dep":"Tt3","role":"burner-inlet total temperature at which the cold-air enthalpy is evaluated"}]},{"id":"burn_mdot","R":"R10","closes":"mdot4","meaning":"Mass addition across the burner: the burner-exit flow is the inlet air flow augmented by the fuel via (1+FAR).","latex":"r_{10} = \\dot m_4 - \\dot m_{air}\\,(1+\\mathrm{FAR}) = 0","terms":[{"dep":"mdot4","role":"the unknown this row defines (LHS); burner-exit mass flow"},{"dep":"mdot_air","role":"inlet air mass flow that is augmented by fuel addition"},{"dep":"FAR","role":"fuel-air ratio setting the fractional mass added as fuel"}]},{"id":"shaft_power","R":"R11","closes":"Tt5","meaning":"Shaft power balance closing the turbine temperature drop: compressor enthalpy rise drawn from the air equals the turbine enthalpy drop delivered by the hot stream, reduced by mechanical efficiency eta_mech (variable-cp enthalpies, FAR-coupled hot gas).","latex":"r_{11} = \\dot m_{air}\\,\\bigl(h(\\text{cold},T_{t3})-h(\\text{cold},T_{t2})\\bigr) - \\eta_{mech}\\,\\dot m_4\\,\\bigl(h(\\text{hot},T_{t4})-h(\\text{hot},T_{t5})\\bigr) = 0","terms":[{"dep":"mdot_air","role":"air mass flow scaling the compressor enthalpy rise (work demand)"},{"dep":"Tt3","role":"compressor-exit total temperature, top of the cold-side enthalpy rise"},{"dep":"Tt2","role":"compressor-inlet total temperature, bottom of the cold-side enthalpy rise"},{"dep":"mdot4","role":"hot mass flow scaling the turbine enthalpy drop"},{"dep":"Tt4","role":"turbine-inlet total temperature, top of the hot-side enthalpy drop"},{"dep":"Tt5","role":"the unknown effectively closed here; turbine-exit total temperature setting the bottom of the hot-side drop"},{"dep":"FAR","role":"Dual-carrying composition input to hot = products(sys,FAR), fixing the hot-gas cp/R used in the turbine enthalpy drop"}]},{"id":"turb_Pt","R":"R12","closes":"Pt5","meaning":"Turbine pressure drop: the turbine isentropic efficiency eta_t maps the actual temperature drop to an ideal drop, and Pt5 follows from the TPG isentropic pressure ratio over that ideal expansion.","latex":"r_{12} = P_{t5} - P_{t4}\\,\\mathrm{pressure\\_ratio}(\\text{hot},\\,T_{t4},\\,T_{t5,\\text{ideal}}) = 0,\\qquad T_{t5,\\text{ideal}} = T_{t4}-\\tfrac{T_{t4}-T_{t5}}{\\eta_t}","terms":[{"dep":"Pt5","role":"the unknown this row defines (LHS); turbine-exit total pressure"},{"dep":"Pt4","role":"turbine-inlet total pressure multiplied by the isentropic pressure ratio"},{"dep":"Tt5","role":"actual turbine-exit total temperature feeding the ideal-drop / efficiency calculation"},{"dep":"Tt4","role":"turbine-inlet total temperature, reference for both the ideal drop and the pressure ratio"},{"dep":"FAR","role":"Dual-carrying composition input to hot = products(sys,FAR), fixing the hot-gas properties in the isentropic pressure ratio"}]},{"id":"turb_mdot","R":"R13","closes":"mdot5","meaning":"Turbine mass conservation: no mass added or removed across the turbine.","latex":"r_{13} = \\dot m_5 - \\dot m_4 = 0","terms":[{"dep":"mdot5","role":"the unknown this row defines (LHS); turbine-exit mass flow"},{"dep":"mdot4","role":"turbine-inlet mass flow carried through unchanged"}]},{"id":"noz_Tt8","R":"R14","closes":"Tt8","meaning":"Adiabatic loss-free duct 5 to 8: the throat total temperature equals the turbine-exit total temperature (no afterburner).","latex":"r_{14} = T_{t8} - T_{t5} = 0","terms":[{"dep":"Tt8","role":"the unknown this row defines (LHS); nozzle-throat total temperature"},{"dep":"Tt5","role":"turbine-exit total temperature carried through the duct unchanged"}]},{"id":"noz_Pt8","R":"R15","closes":"Pt8","meaning":"Loss-free duct 5 to 8: the throat total pressure equals the turbine-exit total pressure.","latex":"r_{15} = P_{t8} - P_{t5} = 0","terms":[{"dep":"Pt8","role":"the unknown this row defines (LHS); nozzle-throat total pressure"},{"dep":"Pt5","role":"turbine-exit total pressure carried through the duct unchanged"}]},{"id":"noz_mdot8","R":"R16","closes":"mdot8","meaning":"Mass conservation through the duct 5 to 8: throat mass flow equals turbine-exit mass flow.","latex":"r_{16} = \\dot m_8 - \\dot m_5 = 0","terms":[{"dep":"mdot8","role":"the unknown this row defines (LHS); nozzle-throat mass flow"},{"dep":"mdot5","role":"turbine-exit mass flow carried through unchanged"}]},{"id":"noz_M8","R":"R17","closes":"M8","meaning":"Choked convergent nozzle: the throat Mach number is unity at the design point.","latex":"r_{17} = M_8 - 1 = 0","terms":[{"dep":"M8","role":"the unknown this row defines; pinned to the choked sonic value 1"}]},{"id":"noz_T8","R":"R18a","closes":"T8","meaning":"TPG M=1 energy balance defining the throat static temperature T8: the total enthalpy equals the static enthalpy plus half the square of the local speed of sound (the sonic-throat condition under variable gamma).","latex":"r_{18} = h(\\text{hot},\\,T_{t8}) - h(\\text{hot},\\,T_8) - \\tfrac{1}{2}\\,a(\\text{hot},\\,T_8)^2 = 0","terms":[{"dep":"T8","role":"the unknown this row defines; throat static temperature appearing in both the static enthalpy and the speed-of-sound (kinetic) term"},{"dep":"Tt8","role":"throat total temperature setting the total enthalpy on the left"},{"dep":"FAR","role":"Dual-carrying composition input to hot = products(sys,FAR), fixing the hot-gas enthalpy and speed of sound"}]},{"id":"noz_P8","R":"R18b","closes":"P8","meaning":"TPG isentropic static throat pressure: P8 is the throat total pressure scaled by the isentropic pressure ratio between the total temperature Tt8 and the static temperature T8.","latex":"r_{19} = P_8 - P_{t8}\\,\\mathrm{pressure\\_ratio}(\\text{hot},\\,T_{t8},\\,T_8) = 0","terms":[{"dep":"P8","role":"the unknown this row defines (LHS); throat static pressure"},{"dep":"Pt8","role":"throat total pressure multiplied by the isentropic pressure ratio"},{"dep":"Tt8","role":"throat total temperature, the upper state of the isentropic pressure ratio"},{"dep":"T8","role":"throat static temperature, the lower state of the isentropic pressure ratio"},{"dep":"FAR","role":"Dual-carrying composition input to hot = products(sys,FAR), fixing the hot-gas entropy in the pressure ratio"}]},{"id":"noz_A8","R":"R19","closes":"A8","meaning":"Continuity defines the throat area A8: throat mass flow equals static density times sonic velocity times area, with density P8/(R*T8) and velocity the speed of sound at T8 (since M8=1).","latex":"r_{20} = \\dot m_8 - \\rho_8\\,V_8\\,A_8 = 0,\\qquad \\rho_8=\\frac{P_8}{R(\\text{hot})\\,T_8},\\quad V_8=a(\\text{hot},\\,T_8)","terms":[{"dep":"mdot8","role":"throat mass flow equated to the continuity product rho8*V8*A8"},{"dep":"P8","role":"throat static pressure entering the static density rho8 = P8/(R*T8)"},{"dep":"T8","role":"throat static temperature setting both the density and the sonic velocity V8 = a(hot,T8)"},{"dep":"A8","role":"the unknown this row defines; throat flow area"},{"dep":"FAR","role":"Dual-carrying composition input to hot = products(sys,FAR), fixing R(hot) and the speed of sound"}]},{"id":"noz_P9","R":"R20","closes":"P9","meaning":"Convergent nozzle exit equals the throat: the exit static pressure equals the throat static pressure (no divergent section when choked).","latex":"r_{21} = P_9 - P_8 = 0","terms":[{"dep":"P9","role":"the unknown this row defines (LHS); nozzle-exit static pressure"},{"dep":"P8","role":"throat static pressure carried to the exit plane unchanged"}]},{"id":"noz_V9","R":"R21","closes":"V9","meaning":"Choked-exit velocity: with M8=1 the exit velocity equals the local speed of sound at the throat static temperature T8.","latex":"r_{22} = V_9 - a(\\text{hot},\\,T_8) = 0","terms":[{"dep":"V9","role":"the unknown this row defines (LHS); nozzle-exit jet velocity"},{"dep":"T8","role":"throat static temperature at which the sonic speed of sound is evaluated"},{"dep":"FAR","role":"Dual-carrying composition input to hot = products(sys,FAR), fixing the hot-gas speed of sound"}]},{"id":"noz_A9","R":"R22","closes":"A9","meaning":"Convergent geometry: the exit area equals the throat area (the exit plane is the throat when choked).","latex":"r_{23} = A_9 - A_8 = 0","terms":[{"dep":"A9","role":"the unknown this row defines (LHS); nozzle-exit area"},{"dep":"A8","role":"throat area carried to the exit plane unchanged"}]},{"id":"noz_mdot9","R":"R23","closes":"mdot9","meaning":"Mass conservation to the exit plane: exit mass flow equals throat mass flow.","latex":"r_{24} = \\dot m_9 - \\dot m_8 = 0","terms":[{"dep":"mdot9","role":"the unknown this row defines (LHS); nozzle-exit mass flow"},{"dep":"mdot8","role":"throat mass flow carried to the exit plane unchanged"}]},{"id":"perf_V0","R":"R24","closes":"V0","meaning":"Freestream velocity: flight Mach M0 times the cold-gas speed of sound at the ambient static temperature T0.","latex":"r_{25} = V_0 - M_0\\,a(\\text{COLD\\_GAS},\\,T_0) = 0","terms":[{"dep":"V0","role":"the unknown this row defines; freestream flight velocity computed from the given M0 and T0"}]},{"id":"perf_Fram","R":"R25","closes":"Fram","meaning":"Ram drag: the inlet air momentum carried in at freestream velocity, i.e. mdot_air times V0.","latex":"r_{26} = F_{ram} - \\dot m_{air}\\,V_0 = 0","terms":[{"dep":"Fram","role":"the unknown this row defines (LHS); ram drag"},{"dep":"mdot_air","role":"inlet air mass flow entering the momentum product"},{"dep":"V0","role":"freestream velocity entering the momentum product"}]},{"id":"perf_Fg","R":"R26","closes":"Fg","meaning":"Gross thrust: exit-jet momentum flux plus the pressure-thrust term from the exit static-to-ambient pressure difference acting over the exit area.","latex":"r_{27} = F_g - \\bigl(\\dot m_9\\,V_9 + (P_9 - P_0)\\,A_9\\bigr) = 0","terms":[{"dep":"Fg","role":"the unknown this row defines (LHS); gross thrust"},{"dep":"mdot9","role":"exit mass flow in the jet momentum term"},{"dep":"V9","role":"exit jet velocity in the jet momentum term"},{"dep":"P9","role":"exit static pressure in the pressure-thrust term (vs ambient P0)"},{"dep":"A9","role":"exit area over which the pressure difference acts"}]},{"id":"perf_Fn","R":"R27","closes":"mdot_air","meaning":"Net-thrust closure row: gross thrust minus ram drag is forced to equal the design target Fn_target, which sizes the inlet air mass flow.","latex":"r_{28} = (F_g - F_{ram}) - F_{n,\\text{target}} = 0","terms":[{"dep":"Fg","role":"gross thrust contributing positively to net thrust"},{"dep":"Fram","role":"ram drag subtracted from gross thrust; the residual is pinned to Fn_target, which in turn sizes mdot_air"}]},{"id":"perf_mfuel","R":"R28","closes":"mdot_fuel","meaning":"Fuel mass flow: the fuel-air ratio FAR times the inlet air mass flow.","latex":"r_{29} = \\dot m_{fuel} - \\mathrm{FAR}\\,\\dot m_{air} = 0","terms":[{"dep":"mdot_fuel","role":"the unknown this row defines (LHS); fuel mass flow"},{"dep":"FAR","role":"fuel-air ratio multiplying the air flow"},{"dep":"mdot_air","role":"inlet air mass flow multiplied by FAR to give fuel flow"}]},{"id":"perf_TSFC","R":"R29","closes":"TSFC","meaning":"Thrust-specific fuel consumption: fuel mass flow divided by net thrust (Fg minus Fram).","latex":"r_{30} = \\mathrm{TSFC} - \\frac{\\dot m_{fuel}}{F_g - F_{ram}} = 0","terms":[{"dep":"TSFC","role":"the unknown this row defines (LHS); thrust-specific fuel consumption"},{"dep":"mdot_fuel","role":"fuel mass flow in the numerator"},{"dep":"Fg","role":"gross thrust, positive part of the net-thrust denominator"},{"dep":"Fram","role":"ram drag, subtracted in the net-thrust denominator"}]}]},"topo":{"stations":[{"n":0,"name":"Freestream","gas":"ambient","role":"Flight condition (ISA 35 kft / M0=0.8). Tt0/Pt0 set from given T0=218.81 K, P0=23842 Pa via cold-gas stagnation; capture area ambiguous."},{"n":2,"name":"Compressor face","gas":"cold","role":"Diffuser outlet. Tt conserved (adiabatic), Pt = pi_d*Pt0 (recovery 0.99). Design Mach M2=0.5."},{"n":3,"name":"Burner inlet","gas":"cold","role":"End of cold side. Pt3 = pi_c*Pt2, Tt3 via isentropic ratio + eta_c. Last FrozenGas(DryAir) station."},{"n":4,"name":"Turbine inlet","gas":"hot","role":"First hot station. Tt4 pinned to Tt4_target=1600 K (closes FAR); mdot4 = mdot_air*(1+FAR). Gas becomes products(JETA_SYS, FAR)."},{"n":5,"name":"Nozzle inlet","gas":"hot","role":"Tt5 set by shaft balance (compressor work), Pt5 from turbine map + eta_t. mdot5 = mdot4."},{"n":8,"name":"Nozzle throat","gas":"hot","role":"Choked throat (M8=1). Totals = station 5; static T8 SOLVED by M=1 energy row; P8, A8 from TPG isentropic + continuity."},{"n":9,"name":"Nozzle exit","gas":"hot","role":"Convergent-nozzle exit = throat (P9=P8, V9=V8, A9=A8). Supplies the gross-thrust momentum + pressure terms."}],"components":[{"owner":"ambient","name":"Ambient","gas":"ambient","blurb":"Sets station-0 totals from the fixed design-point freestream (T0, P0, M0) via cold-gas stagnation; the boundary condition the whole gas path hangs off."},{"owner":"inlet","name":"Inlet","gas":"cold","blurb":"Adiabatic diffuser 0→2: total temperature conserved (Tt2=Tt0), total pressure scaled by fixed recovery pi_d=0.99."},{"owner":"compressor","name":"Compressor","gas":"cold","blurb":"Cold-side work input 2→3: pressure rise by ratio pi_c, temperature rise via isentropic ratio corrected by eta_c. Its work demand drives the shaft balance."},{"owner":"burner","name":"Burner","gas":"hot","blurb":"Combustor 3→4 and FAR's home. Pt4=pi_b*Pt3, Tt4 pinned to target (closing FAR), adiabatic energy balance defines FAR, mdot4 adds fuel mass."},{"owner":"turbine","name":"Turbine + Shaft","gas":"hot","blurb":"Expansion 4→5 closed by the shaft power balance (turbine work = compressor work / eta_mech) which fixes Tt5; turbine map + eta_t then fixes Pt5."},{"owner":"nozzle","name":"Nozzle","gas":"hot","blurb":"Choked convergent nozzle 5→8→9 (11 rows, the largest block). Carries totals to the throat, solves the M=1 static T8/P8/A8 via TPG isentropics + continuity, then maps throat to exit."},{"owner":"performance","name":"Performance","gas":"hot","blurb":"Engine-level accounting: ram drag, gross thrust, the net-thrust closure that sizes mdot_air, fuel flow, and TSFC. Spans the whole machine."}],"far_note":"FAR (col 9, owned by the burner) sets the hot-gas cp/γ/R through products(JETA_SYS, FAR). That makes it a declared dependency of every hot-gas property evaluation downstream — the single cross-cutting column of the Jacobian."},"highlight":["FAR"],"compOrder":["ambient","inlet","compressor","burner","turbine","nozzle","performance"],"regimes":{"ambient":"cold","burner":"hot","compressor":"cold","inlet":"cold","nozzle":"hot","performance":"perf","turbine":"hot"},"compLabels":{"ambient":"Ambient","burner":"Burner","compressor":"Compressor","inlet":"Inlet","nozzle":"Nozzle","performance":"Performance","turbine":"Turbine + Shaft"}};
+
+/* ---- derive the four ground-truth structures from DATA ---- */
+const SYS   = DATA.sys || {n:0,unknowns:[],rows:[],solved_stations:[],solved_scalars:{}};
+const PHYS  = DATA.phys || {rows:[]};
+const TOPO  = DATA.topo || {stations:[],components:[],far_note:""};
+const HIGHLIGHT = DATA.highlight || [];           // column ids that get the gold cross-cut band (was FAR_ROWS source)
+const META  = DATA.meta || {};
+SYS.unknowns       = SYS.unknowns || [];
+SYS.rows           = SYS.rows || [];
+SYS.solved_stations= SYS.solved_stations || [];
+SYS.solved_scalars = SYS.solved_scalars || {};
+TOPO.stations      = TOPO.stations || [];
+TOPO.components     = TOPO.components || [];
+
+/* ============================================================= *
+ *  DERIVED MODEL  (data-driven where the turbojet was hardcoded) *
+ * ============================================================= */
+function titleCase(s){ return String(s).replace(/[_\-]+/g,' ').replace(/\b\w/g,c=>c.toUpperCase()); }
+
+// owners in first-appearance order across rows then unknowns (used when DATA.compOrder absent)
+function firstAppearanceOwners(){
+  const seen=new Set(), order=[];
+  SYS.rows.forEach(r=>{ if(r.owner!=null && !seen.has(r.owner)){ seen.add(r.owner); order.push(r.owner); } });
+  SYS.unknowns.forEach(u=>{ if(u.owner!=null && !seen.has(u.owner)){ seen.add(u.owner); order.push(u.owner); } });
+  return order;
+}
+const COMP_ORDER = DATA.compOrder || firstAppearanceOwners();
+
+// regime: cold | hot | perf | neutral ; default every owner to "neutral"
+const REGIME = DATA.regimes || (function(){
+  const m={}; COMP_ORDER.forEach(o=>m[o]="neutral"); return m;
+})();
+function regimeOf(owner){ return REGIME[owner] || "neutral"; }
+
+// component labels: Title-Case the owner unless DATA supplies one
+const COMP_LABEL = DATA.compLabels || (function(){
+  const m={}; COMP_ORDER.forEach(o=>m[o]=titleCase(o)); return m;
+})();
+function labelOf(owner){ return COMP_LABEL[owner] || titleCase(owner); }
+
+// unit prettifier: DATA may extend/override the built-in table
+const UNIT_PRETTY = Object.assign(
+  {K:"K",Pa:"Pa",ratio:"—",dimensionless:"—",kg_per_s:"kg/s",m2:"m²",m_per_s:"m/s",N:"N",W:"W",
+   J_per_kg:"J/kg",kg_per_N_s:"kg/(N·s)"},
+  DATA.unitPretty || {});
+function unitPretty(u){ return UNIT_PRETTY[u] || u; }
+
+const isHL = id => HIGHLIGHT.includes(id);   // is this column id a cross-cut highlight?
+
+const physById = Object.fromEntries(PHYS.rows.map(r=>[r.id,r]));
+const unkById  = Object.fromEntries(SYS.unknowns.map(u=>[u.id,u]));
+const rowById  = Object.fromEntries(SYS.rows.map(r=>[r.id,r]));
+const rowsByCol = {}; // colId -> [rowId,...]
+SYS.unknowns.forEach(u=>rowsByCol[u.id]=[]);
+SYS.rows.forEach(r=>r.deps.forEach(d=>{ if(rowsByCol[d]) rowsByCol[d].push(r.id); }));
+
+// rows that touch a highlighted column (was FAR_ROWS); flattened, de-duplicated, in row order.
+const HL_ROWS = (function(){
+  const set=new Set();
+  SYS.rows.forEach(r=>{ if(r.deps.some(isHL)) set.add(r.id); });
+  return [...set].sort((a,b)=>rowById[a].row-rowById[b].row);
+})();
+
+// human-readable unknown meaning derived from id + owner + unit
+function unknownMeaning(u){
+  const ph = PHYS.rows.find(r=>r.closes===u.id);
+  const owner = labelOf(u.owner);
+  let base;
+  if(ph){
+    const t = ph.terms ? ph.terms.find(t=>t.dep===u.id) : null;
+    base = t ? t.role.replace(/^the unknown this row defines[^;]*;?\s*/i,'').trim() : '';
+    base = base.charAt(0).toUpperCase()+base.slice(1);
+  }
+  const closerNote = ph ? ` Closed by residual ${ph.R} (`+ph.id+`).` : ` (Closed by a target/closure row, not its own component block.)`;
+  return (base?base+'.':`State variable owned by the ${owner.toLowerCase()}.`) + closerNote;
+}
+
+/* ============================================================= *
+ *  HEADER / META TEXT (from DATA.meta)                           *
+ * ============================================================= */
+const _n   = META.n != null ? META.n : (SYS.rows.length || SYS.unknowns.length);
+const _nnz = META.nnz != null ? META.nnz : SYS.rows.reduce((a,r)=>a+r.deps.length,0);
+const _cells = _n*_n;
+const _density = META.density != null ? META.density
+              : (_cells ? (100*_nnz/_cells) : 0);
+const _densityStr = (typeof _density==="number") ? _density.toFixed(1) : String(_density);
+
+document.getElementById('kicker').textContent = META.kicker || "PowerCycles.jl · Newton system";
+(function(){
+  const t = META.title || "The Newton System";
+  const h1 = document.getElementById('h1');
+  // allow a "<plain>|<accent>" split so the accent gradient survives; else plain.
+  if(t.includes('|')){
+    const [a,b]=t.split('|');
+    h1.innerHTML = `${a}<span class="accent">${b}</span>`;
+  } else { h1.textContent = t; }
+})();
+document.getElementById('lede').innerHTML = META.lede ||
+  `A steady-state design point is solved as one simultaneous nonlinear system: <b>${_n} residual
+   equations</b> <span style="font-family:var(--mono)">F(x) = 0</span> in <b>${_n} unknown state
+   variables</b> <span style="font-family:var(--mono)">x</span>. Newton's method drives every residual
+   to zero at once by repeatedly solving <span style="font-family:var(--mono)">J · Δx = −F</span>, where
+   the <b>Jacobian J</b> records which unknown each equation actually touches. Most equations touch only a
+   few unknowns, so <b>J is sparse</b> — here just <b>${_nnz} of ${_cells} cells</b> are nonzero.`;
+document.getElementById('howto').innerHTML = META.howto ||
+  `<b>How to read the matrix below.</b> Each <b>row</b> is one residual equation, written as
+   <span style="font-family:var(--mono)">r<sub>i</sub> = (…) = 0</span> — the quantity Newton drives to
+   zero; each <b>column</b> is one unknown. A coloured cell at (row, column) means that equation's residual
+   depends on that unknown — an entry in the Jacobian.${HIGHLIGHT.length?` The cross-cutting
+   <span style="color:var(--far);font-weight:600">${HIGHLIGHT.join(', ')}</span> column${HIGHLIGHT.length>1?'s couple':' couples'}
+   the whole machine.`:''} <b>Hover</b> any row, column, or cell to trace its couplings.`;
+document.getElementById('matrixtitle').textContent =
+  META.matrixTitle || `Jacobian sparsity — ${_n} residuals × ${_n} unknowns`;
+document.getElementById('matsub').textContent =
+  META.matrixSub || `${_nnz} nonzeros · ${_densityStr}% dense`;
+document.getElementById('hint').innerHTML = META.hint ||
+  (`Click a component pill to outline its diagonal block.${TOPO.stations.length?' Click a station above to spotlight its unknown columns.':''}`+
+   (HIGHLIGHT.length?` The faintly-tinted <span style="color:var(--far)">${HIGHLIGHT.join(', ')}</span> column${HIGHLIGHT.length>1?'s are':' is'} the cross-cut that couples the whole system.`:''));
+// density bar width reflects the actual density (was hardcoded 8.9%)
+(function(){ const bar=document.querySelector('.density-bar>i'); if(bar) bar.style.width=Math.max(0,Math.min(100,_density))+'%'; })();
+
+/* ============================================================= *
+ *  station-column map: which unknown columns belong to a station *
+ *  A station may carry an explicit `cols:[ids]`; otherwise we     *
+ *  match unknown ids ending in the station number (turbojet       *
+ *  convention Tt0, Pt3, mdot8, …). Empty list ⇒ station has no     *
+ *  highlightable columns but still renders its solved values.     *
+ * ============================================================= */
+const stationCols = (function(){
+  const map={};
+  TOPO.stations.forEach(s=>{
+    if(Array.isArray(s.cols)){ map[s.n]=s.cols.filter(c=>unkById[c]); return; }
+    const suffix=String(s.n);
+    map[s.n]=SYS.unknowns.filter(u=>{
+      const m=String(u.id).match(/(\d+)$/);
+      return m && m[1]===suffix;
+    }).map(u=>u.id);
+  });
+  return map;
+})();
+
+/* ============================================================= *
+ *  RENDER: station strip   (hidden entirely if no stations)      *
+ * ============================================================= */
+function fmt(x,d){ if(x==null) return "—"; const a=Math.abs(x);
+  if(a>=1e4) return (x/1000).toFixed(1)+"k"; if(a>=100)return x.toFixed(0); if(a>=1)return x.toFixed(2); return x.toFixed(3);}
+const strip = document.getElementById('strip');
+if(!TOPO.stations.length){
+  strip.style.display='none';
+} else {
+  TOPO.stations.forEach((s,i)=>{
+    const sd = SYS.solved_stations.find(x=>x.station===s.n) || {};
+    const cls = (s.gas==="cold"||s.gas==="ambient")?"cold":(s.gas==="hot")?"hot":"neutral";
+    const el = document.createElement('div');
+    el.className = "st "+cls; el.dataset.station = s.n;
+    el.innerHTML = `<div class="num">⟨${s.n}⟩</div>
+      <div class="nm"><span class="gasdot"></span>${s.name}</div>
+      <div class="row"><span>Tt</span><b>${fmt(sd.Tt)} K</b></div>
+      <div class="row"><span>Pt</span><b>${fmt(sd.Pt)} Pa</b></div>
+      <div class="row"><span>ṁ</span><b>${fmt(sd.mdot)} kg/s</b></div>
+      <div class="row"><span>M</span><b>${fmt(sd.Mach)}</b></div>`;
+    el.setAttribute('tabindex','0'); el.setAttribute('role','button');
+    el.setAttribute('aria-label',`Gas-path station ${s.n}, ${s.name}. Activate to spotlight its unknown columns.`);
+    el.addEventListener('mouseenter',()=>{ if(!pinned) focusStation(s.n,el); });
+    el.addEventListener('mouseleave',()=>clearFocus());
+    el.addEventListener('focus',()=>{ if(!pinned) focusStation(s.n,el); });
+    el.addEventListener('blur',()=>clearFocus());
+    el.addEventListener('click',()=>togglePin({kind:'station',n:s.n}));
+    el.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '||e.key==='Spacebar'){ e.preventDefault(); togglePin({kind:'station',n:s.n}); } });
+    strip.appendChild(el);
+    if(i<TOPO.stations.length-1){ const a=document.createElement('div'); a.className="arrow"; a.textContent="→"; strip.appendChild(a); }
+  });
+}
+
+/* ============================================================= *
+ *  RENDER: sparsity matrix                                       *
+ * ============================================================= */
+const CELL=17;
+const host = document.getElementById('gridhost');
+const cols = SYS.unknowns.slice().sort((a,b)=>a.col-b.col);
+const rows = SYS.rows.slice().sort((a,b)=>a.row-b.row);
+
+let html = `<table class="spm" id="spm"><thead><tr><th class="corner">F(x)\\x</th>`;
+cols.forEach(u=>{
+  const hl = isHL(u.id);
+  html += `<th class="colh${hl?' farcol':''}" data-col="${u.id}" tabindex="0" role="button" aria-label="Unknown column ${u.id}, ${unitPretty(u.unit)}, owned by ${labelOf(u.owner)}. Activate to inspect."><div class="lbl${hl?' farlbl':''}">${u.id}</div></th>`;
+});
+html += `</tr></thead><tbody>`;
+rows.forEach(r=>{
+  const ph = physById[r.id];
+  const rnum = ph ? `<span class="rnum">${ph.R}</span>` : '';
+  const rlbl = ph ? `${ph.R} ` : '';
+  html += `<tr data-row="${r.id}"><th class="rowh" data-row="${r.id}" tabindex="0" role="button" aria-label="Residual row ${rlbl}${r.id}, owned by ${labelOf(r.owner)}, ${r.deps.length} Jacobian ${r.deps.length===1?'entry':'entries'}. Activate to inspect.">${rnum}${r.id}</th>`;
+  cols.forEach(u=>{
+    const nz = r.deps.includes(u.id);
+    const farband = isHL(u.id) ? " farband":"";
+    if(!nz){ html += `<td class="cell${farband}"><span class="dot" style="opacity:0"></span></td>`; }
+    else {
+      const reg = isHL(u.id) ? "farcol" : regimeOf(u.owner);
+      const diag = (u.owner===r.owner) ? " diag":"";
+      html += `<td class="cell nz ${reg}${diag}${farband}" data-row="${r.id}" data-col="${u.id}" tabindex="0" role="button" aria-label="Jacobian entry: residual ${r.id} depends on unknown ${u.id}. Activate to inspect."><span class="dot"></span></td>`;
+    }
+  });
+  html += `</tr>`;
+});
+html += `</tbody></table>`;
+host.innerHTML = html;
+const spm = document.getElementById('spm');
+
+// component block overlays (dashed boxes over diagonal blocks)
+const overlay = document.createElement('div'); overlay.className="gridoverlay"; overlay.style.inset="0"; host.appendChild(overlay);
+function buildBlocks(){
+  overlay.innerHTML="";
+  const rowhEl = spm.querySelector('tbody .rowh');
+  const theadEl = spm.querySelector('thead');
+  if(!rowhEl || !theadEl) return;            // empty matrix: nothing to box
+  // measure header sizes
+  const rowhW = rowhEl.getBoundingClientRect().width;
+  const headH = theadEl.getBoundingClientRect().height;
+  COMP_ORDER.forEach(owner=>{
+    const rIdx = rows.map((r,i)=>r.owner===owner?i:-1).filter(i=>i>=0);
+    const cIdx = cols.map((u,i)=>u.owner===owner?i:-1).filter(i=>i>=0);
+    if(!rIdx.length||!cIdx.length) return;
+    const r0=Math.min(...rIdx), r1=Math.max(...rIdx), c0=Math.min(...cIdx), c1=Math.max(...cIdx);
+    const box=document.createElement('div');
+    box.className="blockbox"; box.dataset.owner=owner;
+    const reg=regimeOf(owner);
+    const color = reg==="cold"?"var(--cold)":reg==="hot"?"var(--hot)":reg==="perf"?"var(--perf)":"var(--neutral)";
+    box.style.borderColor=color;
+    box.style.left = (rowhW + c0*CELL - 1)+"px";
+    box.style.top  = (headH + r0*CELL - 1)+"px";
+    box.style.width = ((c1-c0+1)*CELL +2)+"px";
+    box.style.height= ((r1-r0+1)*CELL +2)+"px";
+    overlay.appendChild(box);
+  });
+}
+// Recompute after the (monospace) webfont swaps so column widths are final,
+// and track any late layout shift via ResizeObserver instead of a fixed timer.
+buildBlocks();
+window.addEventListener('load',buildBlocks);
+window.addEventListener('resize',buildBlocks);
+if(document.fonts&&document.fonts.ready){ document.fonts.ready.then(buildBlocks); }
+if(window.ResizeObserver){ new ResizeObserver(()=>buildBlocks()).observe(spm); }
+
+/* ---- component pill bar ---- */
+const cmpbar = document.getElementById('cmpbar');
+COMP_ORDER.forEach(owner=>{
+  const reg=regimeOf(owner);
+  const b=document.createElement('button');
+  b.className="cmpbtn "+reg; b.dataset.owner=owner; b.textContent=labelOf(owner);
+  b.setAttribute('aria-pressed','false');
+  const activate=()=>{
+    const on = b.classList.contains('active');
+    cmpbar.querySelectorAll('.cmpbtn').forEach(x=>{x.classList.remove('active');x.setAttribute('aria-pressed','false');});
+    overlay.querySelectorAll('.blockbox').forEach(x=>x.classList.remove('show'));
+    if(!on){
+      b.classList.add('active'); b.setAttribute('aria-pressed','true');
+      const bx=overlay.querySelector(`.blockbox[data-owner="${owner}"]`); if(bx)bx.classList.add('show');
+      pinned={kind:'component',owner}; focusComponent(owner); pinBanner.classList.add('show');
+    } else { releasePin(); }
+  };
+  b.addEventListener('click',activate);
+  b.addEventListener('mouseenter',()=>{ if(!pinned) focusComponent(owner); });
+  b.addEventListener('mouseleave',()=>{ if(!pinned) clearFocus(); });
+  b.addEventListener('focus',()=>{ if(!pinned) focusComponent(owner); });
+  b.addEventListener('blur',()=>{ if(!pinned) clearFocus(); });
+  cmpbar.appendChild(b);
+});
+
+/* ============================================================= *
+ *  INTERACTION ENGINE                                            *
+ * ============================================================= */
+/* ---- unified pin state ----
+   A single sticky target (kind + ids) covering rows, columns, cells, stations,
+   and components. While pinned, hover/focus exits are ignored so the side card
+   stays put and its chips become navigable; click-again or Esc releases. */
+let pinned=null; // {kind:'row'|'col'|'cell'|'station'|'component', ...}
+const pinBanner=document.getElementById('pinbanner');
+function samePin(a,b){
+  if(!a||!b||a.kind!==b.kind) return false;
+  return a.rowId===b.rowId&&a.colId===b.colId&&a.n===b.n&&a.owner===b.owner;
+}
+function renderPin(p){
+  if(p.kind==='row') focusRow(p.rowId);
+  else if(p.kind==='col') focusCol(p.colId);
+  else if(p.kind==='cell') focusCell(p.rowId,p.colId);
+  else if(p.kind==='station') focusStation(p.n);
+  else if(p.kind==='component') focusComponent(p.owner);
+  markSticky(p);
+}
+function markSticky(p){
+  spm.querySelectorAll('.sticky').forEach(e=>e.classList.remove('sticky'));
+  if(!p) return;
+  if(p.kind==='row'){ const h=spm.querySelector(`.rowh[data-row="${p.rowId}"]`); if(h)h.classList.add('sticky'); }
+  else if(p.kind==='col'){ const h=spm.querySelector(`.colh[data-col="${p.colId}"]`); if(h)h.classList.add('sticky'); }
+  else if(p.kind==='cell'){ const c=spm.querySelector(`.cell.nz[data-row="${p.rowId}"][data-col="${p.colId}"]`); if(c)c.classList.add('sticky'); }
+}
+function togglePin(p){
+  if(samePin(pinned,p)){ releasePin(); return; }
+  // switching to a matrix/station pin clears any active component pill
+  const cb=document.getElementById('cmpbar');
+  if(cb){ cb.querySelectorAll('.cmpbtn').forEach(x=>{x.classList.remove('active');x.setAttribute('aria-pressed','false');}); }
+  if(typeof overlay!=='undefined'&&overlay){ overlay.querySelectorAll('.blockbox').forEach(x=>x.classList.remove('show')); }
+  pinned=p; renderPin(p);
+  pinBanner.classList.add('show');
+}
+function releasePin(){
+  pinned=null; markSticky(null); pinBanner.classList.remove('show');
+  const cb=document.getElementById('cmpbar');
+  if(cb){ cb.querySelectorAll('.cmpbtn').forEach(x=>{x.classList.remove('active');x.setAttribute('aria-pressed','false');}); }
+  if(typeof overlay!=='undefined'&&overlay){ overlay.querySelectorAll('.blockbox').forEach(x=>x.classList.remove('show')); }
+  clearFocus();
+}
+
+function setFocus(litCells, litRows, litCols, pinSet){
+  spm.classList.add('has-focus');
+  spm.querySelectorAll('.cell.nz').forEach(c=>{
+    const key=c.dataset.row+'|'+c.dataset.col;
+    const lit = litCells.has(key);
+    c.classList.toggle('lit',lit);
+    c.classList.toggle('pin', lit && pinSet && pinSet.has(key));
+  });
+  spm.querySelectorAll('.rowh').forEach(h=>h.classList.toggle('lit',litRows.has(h.dataset.row)));
+  spm.querySelectorAll('.colh').forEach(h=>h.classList.toggle('lit',litCols.has(h.dataset.col)));
+}
+// Hover/focus exit: if something is pinned, restore it instead of clearing.
+function clearFocus(){
+  if(pinned){ renderPin(pinned); return; }
+  spm.classList.remove('has-focus');
+  spm.querySelectorAll('.lit,.pin,.sticky').forEach(e=>e.classList.remove('lit','pin','sticky'));
+  strip.querySelectorAll('.st').forEach(s=>s.classList.remove('on'));
+  pinBanner.classList.remove('show');
+  renderDefault();
+}
+
+function focusRow(rowId){
+  const r=rowById[rowId];
+  const cells=new Set(), litRows=new Set([rowId]), litCols=new Set(r.deps), pin=new Set();
+  r.deps.forEach(d=>cells.add(rowId+'|'+d));
+  setFocus(cells,litRows,litCols,pin);
+  renderRowCard(rowId);
+}
+function focusCol(colId){
+  const litRows=new Set(rowsByCol[colId]); const litCols=new Set([colId]); const cells=new Set();
+  rowsByCol[colId].forEach(rid=>cells.add(rid+'|'+colId));
+  setFocus(cells,litRows,litCols,new Set());
+  renderColCard(colId);
+}
+function focusCell(rowId,colId){
+  focusRow(rowId);
+  // emphasise the single cell
+  spm.querySelectorAll('.cell.nz').forEach(c=>c.classList.remove('pin'));
+  const cell=spm.querySelector(`.cell.nz[data-row="${rowId}"][data-col="${colId}"]`);
+  if(cell)cell.classList.add('pin');
+  spm.querySelectorAll('.colh').forEach(h=>h.classList.toggle('lit',h.dataset.col===colId));
+  renderCellCard(rowId,colId);
+}
+function focusStation(n,el){
+  strip.querySelectorAll('.st').forEach(s=>s.classList.toggle('on', +s.dataset.station===n));
+  const colIds=stationCols[n]||[];
+  const litCols=new Set(colIds), litRows=new Set(), cells=new Set();
+  colIds.forEach(cid=>(rowsByCol[cid]||[]).forEach(rid=>{litRows.add(rid); cells.add(rid+'|'+cid);}));
+  setFocus(cells,litRows,litCols,new Set());
+  renderStationCard(n);
+}
+function focusComponent(owner){
+  const litRows=new Set(), litCols=new Set(), cells=new Set();
+  SYS.rows.filter(r=>r.owner===owner).forEach(r=>{ litRows.add(r.id); r.deps.forEach(d=>{ cells.add(r.id+'|'+d); }); });
+  SYS.unknowns.filter(u=>u.owner===owner).forEach(u=>litCols.add(u.id));
+  // also light the dep columns reached by these rows
+  SYS.rows.filter(r=>r.owner===owner).forEach(r=>r.deps.forEach(d=>litCols.add(d)));
+  setFocus(cells,litRows,litCols,new Set());
+  renderComponentCard(owner);
+}
+
+// Activate from keyboard (Enter / Space) without scrolling on Space.
+function onActivateKey(handler){
+  return e=>{ if(e.key==='Enter'||e.key===' '||e.key==='Spacebar'){ e.preventDefault(); handler(); } };
+}
+
+// wire hover (preview) + focus (keyboard preview) + click/Enter (pin) on matrix
+spm.querySelectorAll('.rowh').forEach(h=>{
+  const id=h.dataset.row;
+  h.addEventListener('mouseenter',()=>{ if(!pinned) focusRow(id); });
+  h.addEventListener('mouseleave',()=>clearFocus());
+  h.addEventListener('focus',()=>{ if(!pinned) focusRow(id); });
+  h.addEventListener('blur',()=>clearFocus());
+  h.addEventListener('click',()=>togglePin({kind:'row',rowId:id}));
+  h.addEventListener('keydown',onActivateKey(()=>togglePin({kind:'row',rowId:id})));
+});
+spm.querySelectorAll('.colh').forEach(h=>{
+  const id=h.dataset.col;
+  h.addEventListener('mouseenter',()=>{ if(!pinned) focusCol(id); });
+  h.addEventListener('mouseleave',()=>clearFocus());
+  h.addEventListener('focus',()=>{ if(!pinned) focusCol(id); });
+  h.addEventListener('blur',()=>clearFocus());
+  h.addEventListener('click',()=>togglePin({kind:'col',colId:id}));
+  h.addEventListener('keydown',onActivateKey(()=>togglePin({kind:'col',colId:id})));
+});
+spm.querySelectorAll('.cell.nz').forEach(c=>{
+  const rid=c.dataset.row, cid=c.dataset.col;
+  c.addEventListener('mouseenter',()=>{ if(!pinned) focusCell(rid,cid); });
+  c.addEventListener('mouseleave',()=>clearFocus());
+  c.addEventListener('focus',()=>{ if(!pinned) focusCell(rid,cid); });
+  c.addEventListener('blur',()=>clearFocus());
+  c.addEventListener('click',()=>togglePin({kind:'cell',rowId:rid,colId:cid}));
+  c.addEventListener('keydown',onActivateKey(()=>togglePin({kind:'cell',rowId:rid,colId:cid})));
+});
+// Esc releases any pin
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&pinned) releasePin(); });
+
+/* ============================================================= *
+ *  SIDE CARD RENDERERS                                           *
+ * ============================================================= */
+const side = document.getElementById('sidecard');
+function K(tex){ try{ return katex.renderToString(tex,{throwOnError:false,displayMode:true}); }catch(e){ return '<code>'+tex+'</code>'; } }
+function regTag(owner){
+  const reg=regimeOf(owner);
+  const label = reg==='cold'?'cold side':reg==='hot'?'hot side':reg==='perf'?'performance':labelOf(owner).toLowerCase();
+  return `<span class="tag ${reg}">${label}</span>`;
+}
+function vidSpan(id){ return `<span class="vid${isHL(id)?' is-far':''}">${id}</span>`; }
+
+function renderRowCard(rowId){
+  const r=rowById[rowId], ph=physById[rowId];
+  // other rows sharing any unknown
+  const sib = new Set();
+  r.deps.forEach(d=>(rowsByCol[d]||[]).forEach(rid=>{ if(rid!==rowId) sib.add(rid); }));
+  const sibChips = [...sib].sort((a,b)=>rowById[a].row-rowById[b].row)
+    .map(rid=>`<span class="chip" data-jump-row="${rid}">${rid}</span>`).join('');
+  // GENERIC MODE: no PHYS entry ⇒ omit eqbox + meaning/terms; show ids/deps/connections only.
+  if(!ph){
+    side.innerHTML = `<div class="scard">
+      <div class="top">
+        ${regTag(r.owner)}<span class="tag">${labelOf(r.owner)}</span>
+        <h3>${rowId}</h3>
+        <div class="closes">residual · ${r.deps.length} Jacobian entr${r.deps.length===1?'y':'ies'}${r.units?' · '+unitPretty(r.units):''}</div>
+      </div>
+      <div class="body">
+        <div class="sec-lbl">Unknowns this residual touches</div>
+        <div class="conn">${r.deps.map(d=>`<span class="chip${isHL(d)?' far':''}" data-jump-col="${d}">${d}</span>`).join('')||'<span style="color:var(--ink-faint);font-size:12px">none</span>'}</div>
+        <div class="sec-lbl">Connected residuals (share an unknown)</div>
+        <div class="conn">${sibChips||'<span style="color:var(--ink-faint);font-size:12px">none — fully decoupled row</span>'}</div>
+      </div></div>`;
+    wireJumps(); return;
+  }
+  const termHtml = (ph.terms||[]).map(t=>{
+    const isLHS = t.dep===ph.closes;
+    return `<div class="term"><div class="nmrole">${vidSpan(t.dep)}${isLHS?'<span class="badge">closes</span>':''}</div><div class="role">${t.role}</div></div>`;
+  }).join('');
+  side.innerHTML = `<div class="scard">
+    <div class="top">
+      ${regTag(r.owner)}<span class="tag r">${ph.R}</span><span class="tag">${labelOf(r.owner)}</span>
+      <h3>${rowId}</h3>
+      <div class="closes">residual that closes <b>${ph.closes}</b> &nbsp;·&nbsp; ${r.deps.length} Jacobian entr${r.deps.length===1?'y':'ies'}</div>
+    </div>
+    ${ph.latex?`<div class="eqbox">${K(ph.latex)}</div>`:''}
+    <div class="body">
+      ${ph.meaning?`<p class="meaning">${ph.meaning}</p>`:''}
+      <div class="sec-lbl">Unknowns this residual touches</div>
+      ${termHtml || r.deps.map(d=>`<div class="term"><div class="nmrole">${vidSpan(d)}</div></div>`).join('')}
+      <div class="sec-lbl">Connected residuals (share an unknown)</div>
+      <div class="conn">${sibChips||'<span style="color:var(--ink-faint);font-size:12px">none — fully decoupled row</span>'}</div>
+    </div></div>`;
+  wireJumps();
+}
+
+function renderColCard(colId){
+  const u=unkById[colId];
+  const hl = isHL(colId);
+  const users = rowsByCol[colId]||[];
+  const closer = PHYS.rows.find(p=>p.closes===colId);
+  const userChips = users.map(rid=>{
+    const isCloser = closer && closer.id===rid;
+    return `<span class="chip${hl?' far':''}" data-jump-row="${rid}">${rid}${isCloser?' ◀ closes':''}</span>`;
+  }).join('');
+  const crossNote = (hl && TOPO.far_note)
+    ? `<div class="farcard"><h4>★ ${colId} — the cross-cut</h4><p>${TOPO.far_note}</p></div>` : '';
+  side.innerHTML = `<div class="scard">
+    <div class="top">
+      ${regTag(u.owner)}${hl?'<span class="tag far">cross-cutting</span>':''}<span class="tag">${labelOf(u.owner)}</span>
+      <h3>${colId}</h3>
+      <div class="closes">unknown · column ${u.col} of ${SYS.unknowns.length} · used by <b>${users.length}</b> residual${users.length===1?'':'s'}</div>
+    </div>
+    <div class="body">
+      <p class="meaning">${unknownMeaning(u)}</p>
+      ${crossNote}
+      <div class="sec-lbl">Properties</div>
+      <dl class="kv">
+        <dt>units</dt><dd>${unitPretty(u.unit)}</dd>
+        <dt>nominal</dt><dd>${u.nominal!=null?u.nominal:'—'}</dd>
+        <dt>scale</dt><dd>${u.scale!=null?u.scale:'—'}</dd>
+        <dt>owner</dt><dd>${labelOf(u.owner)}</dd>
+        <dt>closed by</dt><dd>${closer?closer.id+' ('+closer.R+')':'—'}</dd>
+      </dl>
+      <div class="sec-lbl">Where it is connected (residuals depending on it)</div>
+      <div class="conn">${userChips||'<span style="color:var(--ink-faint);font-size:12px">unused</span>'}</div>
+    </div></div>`;
+  wireJumps();
+}
+
+function renderCellCard(rowId,colId){
+  const r=rowById[rowId], ph=physById[rowId], u=unkById[colId];
+  const term=ph && ph.terms ? ph.terms.find(t=>t.dep===colId) : null;
+  const hl=isHL(colId);
+  side.innerHTML = `<div class="scard">
+    <div class="top">
+      ${regTag(r.owner)}${ph?`<span class="tag r">${ph.R}</span>`:''}${hl?'<span class="tag far">cross-cut coupling</span>':''}
+      <h3 style="font-size:15px">∂ ${rowId} / ∂ ${colId}</h3>
+      <div class="closes">Jacobian entry &nbsp;·&nbsp; row <b>${rowId}</b> depends on <b>${colId}</b></div>
+    </div>
+    ${ph&&ph.latex?`<div class="eqbox">${K(ph.latex)}</div>`:''}
+    <div class="body">
+      <p class="meaning"><b style="color:#fff;font-family:var(--mono)">${rowId}</b> depends on <b style="color:${hl?'var(--far)':'#fff'};font-family:var(--mono)">${colId}</b>${term?' — '+term.role:''}.</p>
+      <div class="sec-lbl">${colId} also feeds</div>
+      <div class="conn">${(rowsByCol[colId]||[]).filter(x=>x!==rowId).map(rid=>`<span class="chip${hl?' far':''}" data-jump-row="${rid}">${rid}</span>`).join('')||'<span style="color:var(--ink-faint);font-size:12px">only this row</span>'}</div>
+    </div></div>`;
+  wireJumps();
+}
+
+function renderStationCard(n){
+  const s=TOPO.stations.find(x=>x.station===n);
+  const sd=SYS.solved_stations.find(x=>x.station===n) || {};
+  const colIds=stationCols[n]||[];
+  const cls=(s.gas==="cold"||s.gas==="ambient")?"cold":(s.gas==="hot")?"hot":"neutral";
+  const gasLabel = cls==='cold'?'cold gas':cls==='hot'?'hot gas':'gas';
+  const colChips=colIds.map(cid=>`<span class="chip${isHL(cid)?' far':''}" data-jump-col="${cid}">${cid}</span>`).join('');
+  side.innerHTML=`<div class="scard">
+    <div class="top">
+      <span class="tag ${cls}">${gasLabel}</span><span class="tag">station ⟨${n}⟩</span>
+      <h3 style="font-family:-apple-system,sans-serif">${s.name}</h3>
+      <div class="closes">design-point state &nbsp;·&nbsp; ${colIds.length} unknown column${colIds.length===1?'':'s'}</div>
+    </div>
+    <div class="body">
+      <p class="meaning">${s.role||''}</p>
+      <div class="sec-lbl">Solved values</div>
+      <dl class="kv">
+        <dt>Tt</dt><dd>${sd.Tt!=null?sd.Tt.toFixed(2)+' K':'—'}</dd>
+        <dt>Pt</dt><dd>${sd.Pt!=null?sd.Pt.toFixed(0)+' Pa':'—'}</dd>
+        <dt>ṁ</dt><dd>${sd.mdot!=null?sd.mdot.toFixed(2)+' kg/s':'—'}</dd>
+        <dt>Mach</dt><dd>${sd.Mach!=null?sd.Mach:'—'}</dd>
+        <dt>FAR</dt><dd>${sd.FAR!=null?sd.FAR:'—'}</dd>
+        <dt>Area</dt><dd>${sd.Area==null?'— (NaN)':sd.Area.toFixed(4)+' m²'}</dd>
+      </dl>
+      <div class="sec-lbl">Unknown columns at this station</div>
+      <div class="conn">${colChips||'<span style="color:var(--ink-faint);font-size:12px">none</span>'}</div>
+    </div></div>`;
+  wireJumps();
+}
+
+function renderComponentCard(owner){
+  const c=TOPO.components.find(x=>x.owner===owner) || {name:labelOf(owner),blurb:''};
+  const rws=SYS.rows.filter(r=>r.owner===owner);
+  const unks=SYS.unknowns.filter(u=>u.owner===owner);
+  const rowChips=rws.map(r=>`<span class="chip" data-jump-row="${r.id}">${r.id}</span>`).join('');
+  const unkChips=unks.map(u=>`<span class="chip${isHL(u.id)?' far':''}" data-jump-col="${u.id}">${u.id}</span>`).join('');
+  side.innerHTML=`<div class="scard">
+    <div class="top">
+      ${regTag(owner)}<span class="tag">${rws.length} rows × ${unks.length} unknowns</span>
+      <h3 style="font-family:-apple-system,sans-serif">${c.name||labelOf(owner)}</h3>
+      <div class="closes">component block</div>
+    </div>
+    <div class="body">
+      ${c.blurb?`<p class="meaning">${c.blurb}</p>`:''}
+      <div class="sec-lbl">Residual rows</div>
+      <div class="conn">${rowChips||'<span style="color:var(--ink-faint);font-size:12px">none</span>'}</div>
+      <div class="sec-lbl">Unknown columns</div>
+      <div class="conn">${unkChips||'<span style="color:var(--ink-faint);font-size:12px">none</span>'}</div>
+    </div></div>`;
+  wireJumps();
+}
+
+function wireJumps(){
+  // Chips: hover previews the linked row/col in the matrix; click pins it so the
+  // reader can follow a coupling and then read the destination card. Keyboard
+  // accessible via tabindex + Enter/Space.
+  side.querySelectorAll('[data-jump-row]').forEach(el=>{
+    const rid=el.dataset.jumpRow; el.setAttribute('tabindex','0'); el.setAttribute('role','button');
+    el.addEventListener('mouseenter',()=>focusRow(rid));
+    el.addEventListener('focus',()=>focusRow(rid));
+    el.addEventListener('click',()=>togglePin({kind:'row',rowId:rid}));
+    el.addEventListener('keydown',onActivateKey(()=>togglePin({kind:'row',rowId:rid})));
+  });
+  side.querySelectorAll('[data-jump-col]').forEach(el=>{
+    const cid=el.dataset.jumpCol; el.setAttribute('tabindex','0'); el.setAttribute('role','button');
+    el.addEventListener('mouseenter',()=>focusCol(cid));
+    el.addEventListener('focus',()=>focusCol(cid));
+    el.addEventListener('click',()=>togglePin({kind:'col',colId:cid}));
+    el.addEventListener('keydown',onActivateKey(()=>togglePin({kind:'col',colId:cid})));
+  });
+}
+
+/* ---- default / stats panel (nothing hovered) ---- */
+function renderDefault(){
+  const sc=SYS.solved_scalars||{};
+  // optional custom stat tiles from DATA.meta.scalars: [{v, l, cls?}]
+  const statTiles = (META.scalars && META.scalars.length)
+    ? META.scalars.map(s=>`<div class="stat"><div class="v${s.cls?' '+s.cls:''}">${s.v}</div><div class="l">${s.l}</div></div>`).join('')
+    : `<div class="stat"><div class="v">${_n} × ${_n}</div><div class="l">equations × unknowns</div></div>
+       <div class="stat"><div class="v">${_nnz}</div><div class="l">nonzero Jacobian cells</div></div>`;
+  // cross-cut card: only when HIGHLIGHT is set
+  let crossCard='';
+  if(HIGHLIGHT.length){
+    const hlChips=HL_ROWS.map(rid=>`<span class="chip far" data-jump-row="${rid}">${rid}</span>`).join('');
+    const note = TOPO.far_note ||
+      `<b style="color:var(--far)">${HIGHLIGHT.join(', ')}</b> ${HIGHLIGHT.length>1?'are the columns':'is the column'} most coupled across the system — the cross-cut that ties otherwise near-independent blocks into a single solve.`;
+    crossCard = `<div class="farcard">
+        <h4>★ ${HIGHLIGHT.join(', ')} — the cross-cut${HIGHLIGHT.length>1?'s':''}</h4>
+        <p>${note}</p>
+        <div class="conn">${hlChips}</div>
+      </div>`;
+  }
+  // legend: only show regime rows that are actually present
+  const regimesPresent = new Set(COMP_ORDER.map(regimeOf));
+  let legendRows='';
+  if(regimesPresent.has('cold')) legendRows+=`<div class="lg"><span class="sw" style="background:var(--cold)"></span>Cold side (plain square)</div>`;
+  if(regimesPresent.has('hot'))  legendRows+=`<div class="lg"><span class="sw hot"></span>Hot side (notched)</div>`;
+  if(regimesPresent.has('perf')) legendRows+=`<div class="lg"><span class="sw perf"></span>Performance (centre dot)</div>`;
+  if(regimesPresent.has('neutral')||!regimesPresent.size) legendRows+=`<div class="lg"><span class="sw neutral"></span>Component block (plain)</div>`;
+  if(HIGHLIGHT.length) legendRows+=`<div class="lg"><span class="sw far"></span>${HIGHLIGHT.join(', ')} (ring + tinted column) — the cross-cut${HIGHLIGHT.length>1?'s':''}</div>`;
+  legendRows+=`<div class="lg"><span class="sw" style="background:transparent;border:1.5px dashed var(--ink-faint)"></span>Dashed box — a component's diagonal block</div>`;
+
+  side.innerHTML=`<div class="scard default-pane">
+    <div class="top">
+      <span class="tag">Newton design point</span><span class="tag good">converged</span>
+      <h3 style="font-family:-apple-system,sans-serif;font-size:16px">System at a glance</h3>
+      <div class="closes">hover a row, column, cell${TOPO.stations.length?', station':''}, or component to inspect a coupling</div>
+    </div>
+    <div class="body">
+      <div class="statgrid">${statTiles}</div>
+      <div class="sec-lbl">Density — ${_nnz} / ${_cells} cells</div>
+      <div class="density-bar"><i></i></div>
+      <div style="font-family:var(--mono);font-size:11px;color:var(--ink-faint);margin-top:4px">${_densityStr}% dense</div>
+
+      <div class="sec-lbl">Legend${regimesPresent.size>1?' — colour and glyph encode the regime':''}</div>
+      <div class="legend">${legendRows}</div>
+
+      ${crossCard}
+    </div></div>`;
+  wireJumps();
+}
+
+renderDefault();
+
+/* release-pin button + one-shot cross-cut attract pulse (only when a highlight exists) */
+const unpinBtn=document.getElementById('unpin');
+if(unpinBtn) unpinBtn.addEventListener('click',releasePin);
+if(HIGHLIGHT.length){
+  (function attract(){
+    const start=()=>{ spm.classList.add('farband-pulse');
+      setTimeout(()=>spm.classList.remove('farband-pulse'),2600); };
+    if(document.fonts&&document.fonts.ready){ document.fonts.ready.then(()=>setTimeout(start,400)); }
+    else { setTimeout(start,500); }
+  })();
+}
+
+/* footer */
+document.getElementById('foot').textContent =
+  META.foot || `PowerCycles.jl · Newton system · ${_n} residuals, ${_n} unknowns, ${_nnz} nonzeros (${_densityStr}% dense)`;
+</script>
+</body>
+</html>

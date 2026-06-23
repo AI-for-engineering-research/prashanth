@@ -69,3 +69,15 @@ Interestingly, in the `TABULAR` pyCycle solve, most of the time is actually open
     | CEA/JANAF | 83.1% | 89.3% |
 
     Absolute warm / per-solve: TABULAR ~108 ms, CEA ~363 ms.
+
+
+
+## Visualizing the problem
+
+*2026-06-20 (Sat, 20th Jun)*
+
+ It's really helpful to visualize the problem that you're trying to solve most of the time. Just being able to see this represented in a neat way that you can interact with actually really deepens your understanding of what the problem is and gives you more ideas on how to solve this.
+
+In that spirit here is an interactive turbojet Newton system that Claude helped me generate that shows you all the residuals and that you can interact with. This is specific to the current iteration of the package I'm developing and it has a lot of weird quirks in terms of how the variables are referenced with the symbols etc. But the visualization gave me a much more confident understanding of the progress that the agents have been making and in the approach we are taking. 
+
+[See here for the visualization](/prashanth/assets/turbojet_newton_system.html).
