@@ -1,0 +1,63 @@
+# personal-bans.txt — words/phrases YOU dislike, beyond the shared lexicon.
+# One regex per line. Case-insensitive; word boundaries (\b) added automatically.
+# '#' starts a comment. Loaded automatically by slop_lint.py and reported under PERSONAL (must-fix).
+# Overlaps with the shared lexicon are de-duplicated, so listing a word here is always safe.
+# Use \s+ between words so a line break inside a phrase still matches.
+#
+# Already must-fix in the shared HARD list (no need to repeat): honest(ly), genuinely, clearly,
+# obviously, basically, truly, definitive(ly), decisive(ly), seamless, delve, cutting-edge, etc.
+
+# --- vague verbs (promoted to must-fix) ---
+leverag(e|es|ing|ed)
+utiliz(e|es|ing|ed|ation)
+facilitat(e|es|ing|ed)
+
+# --- vague positives (promoted to must-fix) ---
+robust(ly|ness)?
+powerful
+elegant(ly)?
+intuitive(ly)?
+
+# --- importance-asserting adjectives ---
+crucial(ly)?
+vital(ly)?
+essential(ly)?
+# "key" is banned only as a slop phrase — bare "key" would hit "API key", "primary key", etc.
+key\s+(takeaway|insight|point|idea|thing|factor|aspect|difference|advantage|benefit|feature|consideration|finding|reason|distinction)
+
+# --- coverage self-praise ---
+comprehensive(ly)?
+thorough(ly|ness)?
+holistic(ally)?
+
+# --- conversational framing verbs ---
+deep[- ]?dive
+div(e|es|ing|ed)\s+in?to
+drill\s*down
+
+# --- marketing verbs ---
+showcas(e|es|ing|ed)
+highlight(s|ing|ed)?
+streamlin(e|es|ing|ed)
+
+# --- magnitude words used without a number ---
+significantly
+substantially
+
+# --- essay-filler connectives / cliches ---
+in\s+(summary|conclusion)
+to\s+(summarize|sum up)
+takeaway
+at the end of the day
+
+# --- web-dev jargon ---
+dogfood(ing|ed|s)?
+distinct(ly)?
+
+# --- defensive / blame-shifting phrases (jarring in agent output) ---
+not\s+(my|our|your|their)\s+(code|commit|change|changes|fault|bug|problem|issue|work)
+
+# --- naked decision-record citations (number without content; added 2026-07-04) ---
+exactly ADR-\d+
+ADR-\d+'?s\s+(principle|spirit|decision)
+per ADR-\d+'?s
