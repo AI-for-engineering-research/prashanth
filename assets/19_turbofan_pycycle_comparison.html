@@ -1,0 +1,1386 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PowerCycles.jl vs PyCycle — two-spool mixed-flow turbofan</title>
+<style>
+  :root{
+    --ink:#15202b; --muted:#5a6b7b; --faint:#8a99a8; --line:#dbe2e8; --line2:#eef2f6;
+    --bg:#ffffff; --panel:#f7f9fb; --panel2:#eef3f7;
+    --pc:#0072B2;      /* PowerCycles (bilinear) — blue (Okabe–Ito) */
+    --pch:#56B4E9;     /* PowerCycles (hermite) — sky blue */
+    --py:#D55E00;      /* PyCycle — vermillion */
+    --des:#0072B2; --od:#B7791F; --warn:#B23A00; --ok:#0b7a5b;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+  }
+  *{box-sizing:border-box}
+  body{font:16px/1.62 -apple-system, system-ui, "Segoe UI", Roboto, sans-serif; color:var(--ink);
+       background:var(--bg); margin:0;}
+  .wrap{max-width:1080px; margin:0 auto; padding:0 22px 120px;}
+  a{color:var(--pc)}
+  h1{font-size:1.72rem; line-height:1.25; margin:0 0 .35rem; letter-spacing:-.01em;}
+  h2{font-size:1.28rem; margin:2.4rem 0 .5rem; letter-spacing:-.01em; padding-top:.4rem;}
+  h3{font-size:1.06rem; margin:1.5rem 0 .4rem;}
+  h4{font-size:.96rem; margin:1.1rem 0 .3rem; color:var(--muted);}
+  p{margin:.55rem 0}
+  ul{padding-left:1.2rem; margin:.5rem 0} li{margin:.34rem 0}
+  code,.mono{font-family:var(--mono); font-size:.86em}
+  code{background:var(--panel2); padding:.05rem .32rem; border-radius:4px}
+  .lede{font-size:1.06rem; color:#22303c}
+  .meta{color:var(--muted); font-size:.85rem}
+  .num{font-variant-numeric:tabular-nums; font-family:var(--mono)}
+  .pos{color:var(--warn)} .neg{color:var(--pc)}
+  header.top{border-bottom:1px solid var(--line); padding:2.4rem 0 1.4rem;}
+  .answer{background:var(--panel); border:1px solid var(--line); border-radius:12px;
+          padding:1.05rem 1.15rem; margin:1.1rem 0 .2rem;}
+  .answer b{color:#0d1620}
+  .badges{display:flex; flex-wrap:wrap; gap:.5rem; margin:.9rem 0 0}
+  .badge{font-size:.82rem; border:1px solid var(--line); border-radius:999px; padding:.2rem .7rem;
+         background:#fff; color:var(--muted)}
+  .badge .k{color:var(--ink); font-weight:600}
+  .prereq{font-size:.9rem; color:var(--muted); border-left:3px solid var(--line); padding:.2rem 0 .2rem .8rem; margin:1rem 0}
+  nav.toc{position:sticky; top:0; z-index:30; background:rgba(255,255,255,.94);
+          backdrop-filter:saturate(1.4) blur(6px); border-bottom:1px solid var(--line);
+          display:flex; flex-wrap:wrap; gap:.15rem; padding:.5rem 0; margin-bottom:1.2rem;}
+  nav.toc a{font-size:.83rem; color:var(--muted); text-decoration:none; padding:.28rem .6rem;
+            border-radius:7px; white-space:nowrap}
+  nav.toc a:hover{background:var(--panel2); color:var(--ink)}
+  nav.toc a.active{background:var(--pc); color:#fff}
+  figure{margin:1.4rem 0}
+  figure svg{max-width:100%; height:auto; display:block}
+  figcaption{color:var(--muted); font-size:.85rem; margin-top:.5rem; line-height:1.5}
+  .panel{border:1px solid var(--line); border-radius:12px; padding:1rem 1.1rem; background:#fff; margin:1.1rem 0}
+  .scroll{overflow-x:auto}
+  table{border-collapse:collapse; width:100%; font-size:.88rem; margin:.4rem 0}
+  th,td{border-bottom:1px solid var(--line2); padding:.42rem .6rem; text-align:right; white-space:nowrap}
+  th:first-child, td:first-child{text-align:left; white-space:normal}
+  thead th{background:var(--panel); border-bottom:1px solid var(--line); position:sticky; top:0;
+           cursor:default; color:var(--muted); font-weight:600}
+  tbody tr:hover{background:#f3f8fc}
+  td.cause{text-align:left; white-space:normal; color:var(--muted); font-size:.84rem}
+  .sort th.s{cursor:pointer} .sort th.s:hover{color:var(--ink)}
+  .row-hot td:first-child{font-weight:600}
+  .controls{display:flex; flex-wrap:wrap; gap:.9rem 1.4rem; align-items:center; margin:.2rem 0 1rem}
+  .grp{display:flex; flex-direction:column; gap:.28rem}
+  .grp .lab{font-size:.74rem; text-transform:uppercase; letter-spacing:.05em; color:var(--faint)}
+  .btns{display:flex; flex-wrap:wrap; gap:.3rem}
+  button.chip{font:inherit; font-size:.82rem; border:1px solid var(--line); background:#fff; color:var(--muted);
+              padding:.24rem .62rem; border-radius:999px; cursor:pointer}
+  button.chip:hover{border-color:var(--pc)}
+  button.chip.on{background:var(--pc); border-color:var(--pc); color:#fff}
+  .series-toggle{display:flex; gap:.5rem; flex-wrap:wrap; margin:.2rem 0 .3rem}
+  .stog{display:inline-flex; align-items:center; gap:.35rem; font-size:.83rem; cursor:pointer;
+        border:1px solid var(--line); border-radius:999px; padding:.2rem .6rem; background:#fff; color:var(--muted)}
+  .stog.off{opacity:.42}
+  .swatch{width:22px; height:0; border-top-width:3px; border-top-style:solid; display:inline-block}
+  .legend{display:flex; flex-wrap:wrap; gap:1rem; font-size:.83rem; color:var(--muted); margin:.3rem 0 0}
+  .legend .it{display:inline-flex; align-items:center; gap:.4rem}
+  details.dc{border:1px solid var(--line); border-radius:11px; margin:.7rem 0; background:#fff; overflow:hidden}
+  details.dc>summary{cursor:pointer; padding:.8rem 1rem; font-weight:600; list-style:none;
+                     display:flex; gap:.7rem; align-items:baseline; background:var(--panel)}
+  details.dc>summary::-webkit-details-marker{display:none}
+  details.dc>summary .tag{font-size:.72rem; color:var(--pc); border:1px solid var(--pc); border-radius:6px;
+                          padding:.05rem .4rem; font-weight:600; white-space:nowrap}
+  details.dc>summary .arw{margin-left:auto; color:var(--faint); font-weight:400; transition:transform .15s}
+  details.dc[open]>summary .arw{transform:rotate(90deg)}
+  details.dc .body{padding:.2rem 1rem 1rem}
+  details.dc .one{color:#0d1620; font-weight:600; margin:.6rem 0 .2rem}
+  .kv{display:grid; grid-template-columns:auto 1fr; gap:.15rem .8rem; font-size:.9rem; margin:.5rem 0}
+  .kv .k{color:var(--faint)}
+  .bought{background:var(--panel); border-radius:8px; padding:.5rem .7rem; font-size:.9rem; margin:.6rem 0 0}
+  .bought b{color:var(--pc)}
+  .call{border-left:4px solid var(--od); background:#fbf7ef; border-radius:0 10px 10px 0; padding:.75rem 1rem; margin:1.1rem 0}
+  .call.for{border-left-color:var(--ok); background:#f0f8f4}
+  .call .t{font-weight:700; font-size:.9rem; margin-bottom:.2rem}
+  /* history section (the single collapsed record) */
+  details.hist{border:1px solid var(--od); border-radius:12px; margin:1.1rem 0; background:#fff; overflow:hidden}
+  details.hist>summary{cursor:pointer; padding:.95rem 1.1rem; font-weight:700; list-style:none;
+                       display:flex; gap:.7rem; align-items:baseline; background:#fbf7ef; color:#7a5a15}
+  details.hist>summary::-webkit-details-marker{display:none}
+  details.hist>summary .arw{margin-left:auto; color:var(--od); font-weight:400; transition:transform .15s}
+  details.hist[open]>summary .arw{transform:rotate(90deg)}
+  details.hist .body{padding:.4rem 1.1rem 1.1rem}
+  .decomp{display:grid; grid-template-columns:1fr; gap:.5rem; margin:1rem 0}
+  .step{display:grid; grid-template-columns:26px 1fr; gap:.7rem; align-items:start;
+        border:1px solid var(--line); border-radius:10px; padding:.6rem .8rem; background:#fff}
+  .step .n{width:26px; height:26px; border-radius:50%; background:var(--pc); color:#fff; font-weight:700;
+           font-size:.85rem; display:grid; place-items:center}
+  .step .eq{font-family:var(--mono); font-size:.85rem; color:#0d1620; margin-top:.15rem}
+  .idbox{border:1px solid var(--line); border-radius:10px; background:var(--panel); padding:.7rem .9rem; margin:.8rem 0;
+         font-family:var(--mono); font-size:.88rem; text-align:center; color:#0d1620}
+  .idbox .op{color:var(--muted)}
+  .tt{position:absolute; pointer-events:none; background:#0d1620; color:#fff; font-size:.78rem;
+      border-radius:8px; padding:.5rem .6rem; opacity:0; transition:opacity .08s; z-index:40; max-width:250px}
+  .tt .r{display:flex; justify-content:space-between; gap:1rem; font-variant-numeric:tabular-nums}
+  .tt .r .lab{opacity:.8}
+  .foot{border-top:1px solid var(--line); margin-top:3rem; padding-top:1.2rem; font-size:.85rem; color:var(--muted)}
+  .small{font-size:.85rem; color:var(--muted)}
+  @media (max-width:640px){ h1{font-size:1.42rem} .wrap{padding:0 14px 90px} }
+  @media print{ nav.toc{display:none} details.dc,details.hist{break-inside:avoid} .answer{background:#fff}
+    a{color:#000} details.dc:not([open])>*:not(summary),details.hist:not([open])>*:not(summary){display:block} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <h1>A two-spool mixed-flow turbofan in PowerCycles.jl, measured against PyCycle</h1>
+  <p class="lede">Both codes run one identical engine &mdash; the same five turbomachinery maps, the same
+  fuel model, the same map-interpolation scheme &mdash; and this page reports how far apart they land, why,
+  and the design decisions behind PowerCycles.jl.</p>
+
+  <div class="answer">
+    <b>What this is.</b> PowerCycles.jl is this project: a Julia gas-turbine cycle solver that compiles a
+    declared engine to a system of equations and solves it with Newton's method. PyCycle is NASA's
+    OpenMDAO-based cycle code, used here as the external reference.
+    <br><br>
+    <b>The result, in one paragraph.</b>
+    <span class="ans-acc"></span>
+    <span class="ans-od"></span>
+    <span class="ans-speed"></span>
+    <span class="ans-rob"></span>
+  </div>
+
+  <div class="badges">
+    <span class="badge"><span class="k">PowerCycles.jl</span> commit a4311c3 (Julia 1.12.6)</span>
+    <span class="badge"><span class="k">PyCycle</span> 4.4.1-dev, clone ee7e161</span>
+    <span class="badge">OpenMDAO 3.44.0 &middot; NumPy 1.26.4 &middot; SciPy 1.17.1</span>
+    <span class="badge">Apple M2 Pro &middot; single-thread BLAS both sides</span>
+  </div>
+
+  <div class="prereq">
+    <b>Audience &amp; scope.</b> A propulsion researcher who was not present when this was built. Every term,
+    station number, and symbol is defined on first use. Scope: one dry (afterburner-off) design point plus two
+    throttle sweeps, cross-code, on the bilinear map-interpolation arm (the like-for-like arm) with the
+    smooth-interpolation arm reported as a bounded, named deviation. Every number reads from a data file, not
+    from memory; each traces to a named source (see <a href="#sources">Sources</a>). Where the two codes
+    differ, the difference is stated with both values, its size and sign, and its cause &mdash; whether or not
+    it favours PowerCycles.
+  </div>
+</header>
+
+<nav class="toc" id="toc">
+  <a href="#benchmark">The benchmark</a>
+  <a href="#design-acc">Accuracy: design</a>
+  <a href="#offdesign">Accuracy: off-design</a>
+  <a href="#perf">Speed &amp; convergence</a>
+  <a href="#choices">Design choices</a>
+  <a href="#history">How it reached this state</a>
+  <a href="#limits">Limits &amp; roadmap</a>
+  <a href="#sources">Sources</a>
+</nav>
+
+<!-- ============================================================ 1 BENCHMARK -->
+<section id="benchmark">
+  <h2>1&nbsp;&middot;&nbsp;The benchmark: the mirrored engine, kept like-for-like</h2>
+  <p>The reference is PyCycle's shipped example <code>example_cycles/mixedflow_turbofan.py</code> (clone
+  commit <code>ee7e161</code>). PowerCycles builds the same engine: a two-spool, mixed-flow turbofan &mdash;
+  two independently rotating shaft groups (<b>spools</b>), a cold bypass stream remixed with the hot core
+  before one common nozzle, seven total-pressure-loss ducts, and two turbine-cooling bleeds. A <b>station</b>
+  is a numbered location along the gas path; <b>Tt</b> is total (stagnation) temperature [K] and <b>Pt</b>
+  total pressure [Pa] &mdash; the state a flow reaches when brought to rest.</p>
+
+  <p><b>PyCycle evaluates gas properties two ways, and both appear on this page.</b> <b>CEA</b>
+  (chemical-equilibrium-with-applications) runs a Gibbs-energy-minimization Newton solve for the equilibrium
+  species mix inside every property call &mdash; PyCycle's most accurate backend, and its slowest.
+  <b>TABULAR</b> looks up precomputed property tables interpolated in total pressure, total temperature, and
+  fuel-air ratio, with no per-call equilibrium solve &mdash; PyCycle's fastest backend. PowerCycles evaluates
+  hot-gas properties from frozen-products polynomials (a fixed product composition set by the solved fuel-air
+  ratio, then polynomial fits in temperature). Computationally that is the operation-for-operation analogue of
+  TABULAR (table/polynomial lookup), not of CEA (an equilibrium solve inside every call), so the fair speed and
+  accuracy comparison is PowerCycles vs PyCycle-TABULAR; CEA is kept throughout as PyCycle's accuracy reference
+  and its own upper bound on thermo fidelity. Every number below that depends on the thermo backend is labeled
+  CEA or TABULAR.</p>
+
+  <figure class="panel">
+    <div id="schematic"></div>
+    <figcaption><b>The engine both codes run.</b> Air enters at the ambient/inlet (stations 0&ndash;2), is
+    compressed by the fan (21), then split: the cold bypass (13) runs to the mixer; the core runs
+    low-pressure compressor LPC (24) &rarr; high-pressure compressor HPC (3) &rarr; burner (4) &rarr;
+    high-pressure turbine HPT (45) &rarr; low-pressure turbine LPT (5), then to the mixer (6). The mixer merges
+    hot core and cold bypass into one stream, through the mixer duct (16) and the unfueled afterburner duct (7)
+    to a converging&ndash;diverging nozzle (throat 8, exit 9). The
+    <span style="color:var(--des)">LP spool</span> is fan&nbsp;+&nbsp;LPC driven by the LPT; the
+    <span style="color:var(--od)">HP spool</span> is HPC driven by the HPT. Cooling bleed <b>cool1</b> is
+    tapped partway through the HPC (interstage) and delivered to the LPT exit; <b>cool3</b> is tapped at the
+    HPC exit and delivered to the HPT exit. Design point: International Standard Atmosphere 35,000&nbsp;ft,
+    flight Mach 0.8, sized to net thrust Fn&nbsp;=&nbsp;5500&nbsp;lbf&nbsp;=&nbsp;24465&nbsp;N and burner-exit
+    total temperature Tt4&nbsp;=&nbsp;3200&nbsp;&deg;R&nbsp;=&nbsp;1777.8&nbsp;K; fan pressure ratio 3.3,
+    LPC 1.935, HPC 4.9, overall pressure ratio &asymp;&nbsp;30.5, bypass ratio 2.41334.</figcaption>
+  </figure>
+
+  <h3>Four things enforce "like-for-like"</h3>
+  <ul>
+    <li><b>The five turbomachinery maps are the same tables, verified to machine precision.</b> A <b>map</b>
+    is a published table giving a turbomachine's pressure ratio, efficiency, and corrected flow versus its
+    corrected speed and a second map coordinate. Both codes read the fan map AXI5, the LPC and HPC maps
+    (ECUBE), and the HPT and LPT maps that PyCycle's example loads. The ported fan table is identical to
+    PyCycle's at all 90 grid nodes (maximum difference 0.0); the LPC and HPC tables ship byte-identical;
+    off-grid, the two codes' table reads agree to under 4&times;10<sup>&minus;8</sup>&nbsp;lbm/s across 58
+    probe points per map.</li>
+
+    <li><b>Both codes interpolate the maps the same way (the "bilinear arm").</b> PyCycle interpolates its maps
+    with SciPy linear (<code>slinear</code>) interpolation. PowerCycles has two interpolation backends; for the
+    like-for-like accuracy statement it runs its bilinear backend (<code>interp=:bilinear</code>), which
+    reproduces PyCycle's scheme. PowerCycles' production backend &mdash; a smooth bicubic-Hermite scheme
+    &mdash; is reported separately as a bounded, named deviation
+    (<a href="#interp">&sect;3, the two arms</a>).</li>
+
+    <li><b>The afterburner is run dry (a recorded boundary).</b> PyCycle's shipped example balances afterburner
+    fuel to a 3400&nbsp;&deg;R exit target. This comparison removes that balance and leaves the afterburner
+    unfueled (fuel-air ratio 0); the afterburner element stays in the path, so its total-pressure loss (loss
+    coefficient 0.0540) still applies. PowerCycles models this as a pure pressure-loss duct. The lit
+    cross-check is filed work (<a href="#limits">&sect;7</a>).</li>
+
+    <li><b>Both codes inject the same fuel formation enthalpy, on both PyCycle thermo backends.</b> PyCycle's
+    combustor enters the Jet-A fuel with specific enthalpy 0 by default, on CEA and on TABULAR alike,
+    understating the fuel needed to reach a given burner-exit temperature. Both codes here inject the
+    NASA-CEA Jet-A(g) enthalpy of formation <span class="num">&minus;1&thinsp;492&thinsp;173&nbsp;J/kg</span>
+    &mdash; the same value on both backends. Measured effect on PyCycle's CEA arm: <span class="num">+3.83%</span>
+    fuel-air ratio, <span class="num">+3.46%</span> thrust-specific fuel consumption versus uncorrected;
+    verified on the TABULAR arm with a burner probe, the same correction shifts fuel-air ratio
+    <span class="num">+3.77%</span>.</li>
+  </ul>
+
+  <h3>What is imposed, and what is solved</h3>
+  <ul>
+    <li><b>At the design point</b> the sizing targets are imposed on both codes: net thrust
+    Fn&nbsp;=&nbsp;24465&nbsp;N, burner-exit temperature Tt4&nbsp;=&nbsp;3200&nbsp;&deg;R, the three
+    compressor pressure ratios, and the bypass ratio (fixed at PyCycle's solved value 2.41334). The mixer
+    extraction ratio is then an <i>output</i> on the PowerCycles side, not a matched constraint.</li>
+    <li><b>Off-design</b> the burner-exit temperature Tt4 (or a corrected fan speed) is the throttle handle;
+    net thrust, bypass ratio, the mixer extraction ratio, and every station state are solved outputs that
+    move with the throttle.</li>
+  </ul>
+
+  <p class="small">Three further modelling choices are re-parameterizations, recorded rather than tuned: the
+  HPC-exit cooling bleed is set so its mass equals PyCycle's separate bleed element identically at every
+  operating point; the deck's 250&nbsp;hp high-pressure shaft offtake is wired inert in PyCycle (it drives
+  nothing), so PowerCycles sets it to zero on both sides; and each cooling stream is credited with the shaft
+  work of an isentropic expansion from its entry total pressure to the turbine exit at the turbine efficiency,
+  matching PyCycle's turbine element &mdash; the cooling-work model, described in
+  <a href="#choices">&sect;5</a>.</p>
+</section>
+
+<!-- ============================================================ 2 ACCURACY DESIGN -->
+<section id="design-acc">
+  <h2>2&nbsp;&middot;&nbsp;Accuracy at the design point</h2>
+  <p>Both codes on the bilinear arm at the design point, on PyCycle's <b>CEA</b> thermodynamics backend (the
+  accuracy reference; the <b>TABULAR</b> backend &mdash; PowerCycles' computational analogue, &sect;1 &mdash;
+  is compared at the end of this section). The cold-side gas path (up to and including the
+  burner exit, plus the whole bypass) agrees to the printed precision; the hot (turbine) side agrees to within
+  a few tenths of a percent. The table carries every shared station: PowerCycles, PyCycle, and the signed
+  difference in Tt and Pt. Click a numeric header to sort; use the filter to isolate the cold or hot side.</p>
+
+  <div class="controls">
+    <div class="grp">
+      <span class="lab">show stations</span>
+      <div class="btns" id="stnFilter">
+        <button class="chip on" data-f="all">all</button>
+        <button class="chip" data-f="cold">cold side</button>
+        <button class="chip" data-f="hot">hot &amp; mixed</button>
+      </div>
+    </div>
+    <div class="grp">
+      <span class="lab">colour &Delta;Pt by</span>
+      <div class="btns" id="stnShade">
+        <button class="chip on" data-s="1">magnitude</button>
+        <button class="chip" data-s="0">off</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="scroll">
+    <table class="sort" id="stationTable">
+      <thead><tr>
+        <th data-k="num" class="s">station</th>
+        <th data-k="Tt_ours" class="s">Tt ours [K]</th>
+        <th data-k="Tt_pyc" class="s">Tt PyCycle [K]</th>
+        <th data-k="dTt" class="s">&Delta;Tt</th>
+        <th data-k="Pt_ours" class="s">Pt ours [Pa]</th>
+        <th data-k="Pt_pyc" class="s">Pt PyCycle [Pa]</th>
+        <th data-k="dPt" class="s">&Delta;Pt</th>
+      </tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+  <p class="small">Cold side: the gas is dry air and the two codes' air thermodynamics and the imposed
+  compressor pressure ratios coincide, so the compression path carries no accumulated difference &mdash; every
+  cold station agrees within <span class="cold-max"></span> (5&ndash;6 significant figures). Hot side: the
+  low-pressure-turbine-exit total pressure Pt5 is the largest station-level difference, and it decomposes
+  cleanly (below).</p>
+
+  <h3>The headline scalars</h3>
+  <div class="scroll">
+    <table id="scalarTable">
+      <thead><tr>
+        <th>quantity</th><th>ours</th><th>PyCycle</th><th>&Delta;</th><th>cause</th>
+      </tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <h3>The LPT-exit pressure difference decomposes into two matched turbine residuals</h3>
+  <p>The one hot-side quantity worth isolating is the low-pressure-turbine-exit total pressure Pt5:
+  <b class="num">124&thinsp;189&nbsp;Pa</b> (ours) vs <b class="num">124&thinsp;493&nbsp;Pa</b> (PyCycle),
+  a difference of <b>&minus;304&nbsp;Pa, &minus;0.24%</b> (PyCycle's CEA arm; <b>&minus;0.54%</b> against its
+  TABULAR arm, below). It is the compound of two same-sign per-turbine
+  pressure-ratio residuals, each small because the coolant-work basis is matched between the codes:</p>
+  <div class="decomp">
+    <div class="step"><div class="n">1</div><div><b>High-pressure turbine.</b> Pressure ratio
+      <span class="num">2.0436</span> (ours) vs <span class="num">2.0410</span> (PyCycle) &mdash;
+      <b>+0.12%</b>.</div></div>
+    <div class="step"><div class="n">2</div><div><b>Low-pressure turbine.</b> Pressure ratio
+      <span class="num">4.1071</span> (ours) vs <span class="num">4.1021</span> (PyCycle) &mdash;
+      <b>+0.12%</b>.</div></div>
+    <div class="step"><div class="n">3</div><div><b>They compound on Pt5.</b> The core expands through both
+      in series, so <span class="eq">Pt5<sub>rel</sub> = &minus;(0.123% + 0.123%) = &minus;0.245%</span>
+      &mdash; the measured value.</div></div>
+  </div>
+  <p>Each per-turbine residual is the <b>hot-gas thermodynamics class</b>: the ratio of specific heats
+  &gamma; differs by under 1% between the two codes' gas models at matched temperatures, and the sign of that
+  difference flips between the hot and cold ends of the expansion, so each turbine carries only a few tenths of
+  a percent. A loop-closure check &mdash; expanding each turbine's ideal specific work through the PowerCycles
+  thermodynamics from the measured inlet state &mdash; bounds the pure-thermodynamics contribution at
+  &le;0.14% (HPT) and &le;0.09% (LPT) per turbine. Measured and attributed, not tuned.</p>
+
+  <h3>The fuel-consumption difference is an exact sum of two terms</h3>
+  <p>Thrust-specific fuel consumption (TSFC, fuel mass flow per unit net thrust) is
+  <b class="num">1.9838&times;10<sup>&minus;5</sup></b> vs <b class="num">2.0047&times;10<sup>&minus;5</sup></b>
+  kg/(N&middot;s), <b>&minus;1.04%</b> (PyCycle's CEA arm; <b>&minus;0.82%</b> against its TABULAR arm, below).
+  With net thrust matched at the design target, TSFC is fuel-air ratio
+  times air flow over a fixed thrust, so its relative difference is the sum of those two relative
+  differences:</p>
+  <div class="idbox">
+    TSFC<sub>rel</sub> <span class="op">=</span> FAR<sub>rel</sub> <span class="op">+</span>
+    mdot_air<sub>rel</sub> <span class="op">=</span> &minus;0.86% <span class="op">+</span> (&minus;0.18%)
+    <span class="op">=</span> &minus;1.04%
+  </div>
+  <p class="small">The fuel-air-ratio term (&minus;0.86%) is the hot-gas and fuel thermodynamics &mdash; the
+  fuel-air ratio each code needs to reach the imposed Tt4. The air-flow term (&minus;0.18%) follows from the
+  matched Pt5: with the mixed-exhaust total pressure in agreement, neither code needs excess air to make the
+  fixed thrust. Net thrust itself is the imposed target and matches to round-off; bypass ratio is imposed
+  directly on both.</p>
+
+  <h3>The CEA&rarr;TABULAR backend choice brackets these differences</h3>
+  <p>PyCycle's own design answer moves when it switches thermodynamics backend from <b>CEA</b> to
+  <b>TABULAR</b> &mdash; the table-interpolation backend PowerCycles' frozen-products polynomials are the
+  computational analogue of (&sect;1). The table below adds that TABULAR comparison next to the CEA comparison
+  above, for the four quantities already discussed:</p>
+  <div class="scroll"><table>
+    <thead><tr><th>quantity</th><th>PowerCycles &minus; CEA</th><th>PowerCycles &minus; TABULAR</th></tr></thead>
+    <tbody>
+      <tr><td>LPT-exit total pressure Pt5</td><td class="num neg">&minus;0.24%</td><td class="num neg">&minus;0.54%</td></tr>
+      <tr><td>fuel-air ratio FAR</td><td class="num neg">&minus;0.86%</td><td class="num neg">&minus;1.00%</td></tr>
+      <tr><td>thrust-specific fuel consumption TSFC</td><td class="num neg">&minus;1.04%</td><td class="num neg">&minus;0.82%</td></tr>
+      <tr><td>inlet air flow mdot_air</td><td class="num neg">&minus;0.18%</td><td class="num neg">&minus;0.49%</td></tr>
+    </tbody>
+  </table></div>
+  <p>Switching PyCycle itself from CEA to TABULAR moves its own design solution by up to about 1%: total
+  pressure <b>+0.30%</b> at every station &mdash; traced to the freestream stagnation-pressure relation
+  Pt0/Ps0, which the tabulated air properties evaluate slightly differently from CEA's equilibrium air at this
+  flight condition, and that single offset then rides multiplicatively through every downstream station
+  &mdash; and bypass ratio <b>+0.96%</b> (the value each backend solves to hold the mixer extraction-ratio
+  target ER&nbsp;=&nbsp;1.05, hit exactly by both). The PowerCycles-vs-PyCycle differences in the table above
+  sit inside that band: the two codes disagree by about as much as PyCycle disagrees with itself across its
+  two thermo backends.</p>
+  <p class="small">Basis note: PowerCycles imposes PyCycle's CEA-solved bypass ratio (2.4133) at the design
+  point (a stated limit, <a href="#limits">&sect;7</a>); PyCycle's TABULAR arm solves its own design bypass
+  ratio, 2.4364 &mdash; the +0.96% difference above. So the PowerCycles-vs-TABULAR row carries that basis
+  difference in addition to the thermodynamics difference; the PowerCycles-vs-CEA row does not, because
+  PowerCycles imposes the CEA value directly.</p>
+</section>
+
+<!-- ============================================================ 3 ACCURACY OFF-DESIGN -->
+<section id="offdesign">
+  <h2>3&nbsp;&middot;&nbsp;Accuracy off design: the throttle sweeps</h2>
+  <p>Both codes ladder the burner-exit temperature Tt4 down in 50&nbsp;&deg;R steps with warm continuation
+  (each point starts from the previous converged point). Pick a quantity and a flight condition; toggle any
+  series; hover the chart to read exact values. The design point sits at the right (highest Tt4). PyCycle's
+  <b>CEA</b> thermodynamics arm is charted here; a <b>TABULAR</b>-arm sweep is recorded in the physics doc
+  (<a href="#sources">Sources</a>) with the same trajectory shape and a smaller fuel-consumption offset.</p>
+
+  <div class="controls">
+    <div class="grp">
+      <span class="lab">quantity (y-axis)</span>
+      <div class="btns" id="swQty"></div>
+    </div>
+    <div class="grp">
+      <span class="lab">flight condition</span>
+      <div class="btns" id="swCond">
+        <button class="chip on" data-c="A">35 kft / Mach 0.8</button>
+        <button class="chip" data-c="B">30 kft / Mach 0.9</button>
+      </div>
+    </div>
+  </div>
+  <div class="series-toggle" id="swSeries"></div>
+
+  <figure class="panel" style="position:relative">
+    <div id="sweepChart"></div>
+    <figcaption id="sweepCap"></figcaption>
+  </figure>
+
+  <h3>Bypass ratio and extraction ratio track PyCycle in level and shape</h3>
+  <ul>
+    <li><b>Bypass ratio migrates with throttle.</b> As Tt4 drops the core loses total pressure faster than the
+    bypass, and the mixing-plane static-pressure match shifts flow to the bypass. Ours climbs
+    <span class="num">2.4133 &rarr; 2.9266</span> over the 3200&nbsp;&rarr;&nbsp;2550&nbsp;&deg;R ladder against
+    PyCycle's <span class="num">2.4133 &rarr; 2.9722</span> &mdash; within <b>&minus;1.5%</b> at the deepest
+    common point. The residual is the small core/bypass pressure-split difference the hot-gas thermodynamics
+    leaves.</li>
+    <li><b>The mixer extraction ratio ER = Pt_hot/Pt_cold crosses unity together.</b> Ours falls
+    <span class="num">1.0474 &rarr; 0.9707</span>; PyCycle's <span class="num">1.0500 &rarr; 0.9680</span>. The
+    two agree to <span class="num">0.0003&ndash;0.0027</span> across the ladder, and both cross ER&nbsp;=&nbsp;1
+    near Tt4&nbsp;&asymp;&nbsp;2800&nbsp;&deg;R (ours 1.0015, PyCycle 1.0011).</li>
+    <li><b>Net thrust</b> deviation grows from 0.0% at design to <b>+2.6%</b> at the deep-throttle floor
+    (2550&nbsp;&deg;R): with Tt4 the imposed throttle and thrust an output, the slightly higher Pt5 (and lower
+    TSFC) yields more thrust as the engine throttles down.</li>
+  </ul>
+
+  <h3>The part-power fuel-consumption hook</h3>
+  <p>Selecting <b>TSFC</b> on the chart above shows an interior minimum &mdash; the part-power "hook" a real
+  engine has when reduced-power operation is more fuel-efficient per unit thrust than either the design point
+  or deep throttle. On the 35&nbsp;kft ladder ours bottoms at Tt4&nbsp;&asymp;&nbsp;2700&nbsp;&deg;R
+  (TSFC&nbsp;<span class="num">1.9309&times;10<sup>&minus;5</sup></span>&nbsp;kg/(N&middot;s)), PyCycle at
+  &asymp;&nbsp;2750&nbsp;&deg;R (<span class="num">1.9522&times;10<sup>&minus;5</sup></span>) &mdash; the
+  minimum's location matches to within one 50&nbsp;&deg;R step. The level runs
+  <span class="num">&minus;1.0% to &minus;1.3%</span> below PyCycle across the ladder, the same hot-gas and
+  cooling-work thermodynamics that set the design-point TSFC.</p>
+  <p class="small"><b>Condition B (30 kft / Mach 0.9)</b> shows the same picture: bypass ratio tracks to within
+  &minus;1.2% at the deepest common point (2850&nbsp;&deg;R: ours 2.8147 vs PyCycle 2.8485), the extraction
+  ratio straddles unity (crossing near 2950&ndash;3000&nbsp;&deg;R), and TSFC runs &minus;1.1% to &minus;1.2%
+  below PyCycle throughout.</p>
+
+  <!-- interpolation arms -->
+  <h3 id="interp">The two interpolation arms &mdash; and when each applies</h3>
+  <p>The accuracy statement above is the bilinear arm (matching PyCycle). PowerCycles' production backend
+  resamples each map once onto a uniform grid and stores, per node, the value plus its partial derivatives as
+  bicubic-Hermite patches, so Newton's method gets exact, smooth map partials instead of differentiating
+  through an interpolant. That smoothness has a price: a small map-resample difference from PyCycle's linear
+  scheme. The difference between the two arms is quantity-dependent, not one number &mdash; largest near the
+  throttle floor where the operating line runs near a map edge.</p>
+
+  <figure class="panel">
+    <div id="hermChart"></div>
+    <figcaption><b>Hermite vs bilinear (PowerCycles' two arms), maximum over the converged 35&nbsp;kft ladder
+    (3200&nbsp;&rarr;&nbsp;2500&nbsp;&deg;R).</b> Net thrust and air flow move most (1.77% and 0.92%, at the
+    2500&nbsp;&deg;R floor); fuel-air ratio barely moves (0.13%). This is the recorded cost of smooth Newton
+    derivatives, reported against the bilinear arm.</figcaption>
+  </figure>
+
+  <p><b>When to use which.</b> The bilinear arm reproduces PyCycle's map reads for a like-for-like validation
+  or where matching a linear-interpolation reference matters. The Hermite arm gives Newton's method a smooth
+  (C&sup1;) map surface with analytic partials &mdash; steadier convergence and no differentiation through the
+  table &mdash; at a bounded, map-edge-localized deviation. Both are one keyword
+  (<code>interp=:bilinear</code> or <code>:hermite</code>) on the same engine.</p>
+</section>
+
+<!-- ============================================================ 4 SPEED + CONVERGENCE -->
+<section id="perf">
+  <h2>4&nbsp;&middot;&nbsp;Speed and convergence</h2>
+  <p>Same machine (Apple M2 Pro), single-thread BLAS on all sides. PowerCycles times are medians of at least
+  7 runs; PyCycle's are medians of 3. Each phase is stated operation-for-operation &mdash; a warm re-solve
+  against a warm re-solve, with what each cold start contains spelled out &mdash; because the cold and warm
+  numbers are not comparable across codes without that framing. PyCycle is timed on both thermo backends:
+  <b>CEA</b> (its slowest, an equilibrium solve inside every property call) and <b>TABULAR</b> (its fastest,
+  and the operation-for-operation match to PowerCycles' frozen-products polynomials, &sect;1). The
+  thermo-like-for-like ratio is PowerCycles vs PyCycle-TABULAR; CEA is kept as the reference PyCycle's own
+  published numbers use.</p>
+
+  <div class="scroll"><table id="timingTable">
+    <thead><tr><th>phase</th><th>PowerCycles</th><th>PyCycle (CEA)</th><th>PyCycle (TABULAR)</th>
+    <th>vs CEA</th><th>vs TABULAR</th><th>what it is</th></tr></thead>
+    <tbody></tbody>
+  </table></div>
+
+  <ul>
+    <li><b>Warm re-solves &mdash; the headline, against PyCycle's fastest backend.</b> PowerCycles runs
+    <b>&asymp;753&times;</b> faster than PyCycle-TABULAR on a warm design solve (0.66&nbsp;ms vs 500&nbsp;ms)
+    and <b>&asymp;548&times;</b> faster on a warm off-design point (0.85&nbsp;ms vs 467&nbsp;ms). Against
+    PyCycle-CEA (its slowest, most accurate backend) the same two solves run <b>&asymp;3990&times;</b> and
+    <b>&asymp;1970&times;</b> faster &mdash; those larger figures overstate the thermo-like-for-like speedup by
+    about 4&ndash;5&times;, because CEA re-runs a chemical-equilibrium solve inside every property call. The
+    operation-for-operation warm speedup is the <b>&asymp;550&ndash;750&times;</b> band. A PowerCycles design
+    solve (the seed march plus Newton over 137 unknowns) allocates 1.07&nbsp;MB; the remaining gap is compiled
+    Julia versus Python/OpenMDAO, not a thermo-backend difference.</li>
+    <li><b>Cold start &mdash; the sign flips against the fast backend.</b> Against PyCycle-CEA, PowerCycles is
+    1.24&times; slower to first solution (21.94&nbsp;s vs 17.73&nbsp;s): PowerCycles' cold cost is assemble
+    (5.76&nbsp;s) plus a first solve (16.18&nbsp;s) that compiles the whole residual and Jacobian kernel graph;
+    PyCycle-CEA's 17.73&nbsp;s is problem build/setup plus a <code>run_model</code> that solves the design point
+    <i>and</i> a coupled off-design anchor point together (the reference deck cannot solve the design point
+    alone). Against PyCycle-TABULAR, PowerCycles is <b>5.96&times; slower</b> cold (21.94&nbsp;s vs
+    3.69&nbsp;s): TABULAR skips both CEA's per-call equilibrium solves and PowerCycles' one-time Julia
+    compilation, so its cold start is import (0.54&nbsp;s) plus build/setup/solve (3.15&nbsp;s).</li>
+    <li><b>PyCycle's own backend speedup (CEA&nbsp;&rarr;&nbsp;TABULAR), for context.</b> Switching PyCycle's
+    own thermodynamics backend from CEA to TABULAR speeds PyCycle up <b>4.81&times;</b> cold,
+    <b>5.29&times;</b> on a warm design solve, and <b>3.60&times;</b> on a warm off-design point &mdash;
+    TABULAR skips CEA's per-call equilibrium solve. This is PyCycle timing itself, not a PowerCycles
+    comparison.</li>
+  </ul>
+
+  <h3>Convergence behaviour &mdash; both codes, at equal weight</h3>
+  <p>Behaviours observed in both codes, recorded with the step sizes that produced
+  them.</p>
+  <div class="controls">
+    <div class="grp">
+      <span class="lab">show</span>
+      <div class="btns" id="robTab">
+        <button class="chip on" data-r="both">both</button>
+        <button class="chip" data-r="py">PyCycle</button>
+        <button class="chip" data-r="pc">PowerCycles</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="robPy">
+    <div class="call">
+      <div class="t" style="color:var(--py)">PyCycle</div>
+      <ul style="margin:.2rem 0">
+        <li><b>Multi-thread BLAS gave non-reproducible deep-throttle convergence.</b> Whether a deep point
+        converged depended on the BLAS thread count; all comparison data were run single-threaded to remove
+        it.</li>
+        <li><b>The off-design point is singular at the design throttle from a cold linearize.</b> It needs warm
+        continuation &mdash; the reference deck cannot solve the design point alone, which is why the cold-start
+        timing already contains one off-design solve.</li>
+        <li><b>The convergence floor is continuation-step-dependent.</b> On 50&nbsp;&deg;R steps PyCycle-CEA's
+        first Newton failure is at Tt4&nbsp;=&nbsp;2500&nbsp;&deg;R (35 kft; residual norm 1.427&times;10<sup>&minus;4</sup>
+        did not fall below 10<sup>&minus;5</sup> within the iteration cap) and 2850&nbsp;&deg;R (30 kft). Its own
+        floor moved from about 3000 to about 2600&nbsp;&deg;R when the step shrank from 50 to
+        10&ndash;25&nbsp;&deg;R.</li>
+        <li><b>PyCycle-TABULAR's floor sits far deeper than PyCycle-CEA's, on the same 50&nbsp;&deg;R step.</b>
+        First Newton failure at Tt4&nbsp;=&nbsp;1850&nbsp;&deg;R (35 kft; converged floor 1900&nbsp;&deg;R, 13
+        steps past CEA's 2500&nbsp;&deg;R failure) and 1950&nbsp;&deg;R (30 kft; converged floor
+        2000&nbsp;&deg;R, 18 steps past CEA's 2850&nbsp;&deg;R). Table-interpolated properties give
+        better-conditioned Newton residuals near deep throttle than CEA's per-call equilibrium solve, which can
+        itself fail to converge internally near extreme conditions.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div id="robPc" hidden>
+    <div class="call">
+      <div class="t" style="color:var(--pc)">PowerCycles</div>
+      <ul style="margin:.2rem 0">
+        <li><b>No Newton failure down to the probe bound, on either PyCycle backend.</b> Extending both ladders
+        with the identical 50&nbsp;&deg;R warm-continuation logic past the committed script endpoints to a
+        1600&nbsp;&deg;R bound finds no Newton failure at either flight condition (33/33 converged each)
+        &mdash; at least 18 steps (35 kft) and 25 steps (30 kft) past where PyCycle-CEA first fails, and 6
+        (35 kft) / 8 (30 kft) steps past where PyCycle-TABULAR first fails. The floor is not measured here: the
+        probe stopped at 1600&nbsp;&deg;R, so the statement is bounded, not a found failure. At the deepest
+        point tested the engine sits at bypass ratio 4.4757, extraction ratio 0.7925, fan corrected speed
+        0.7050 &mdash; a converged, physical solution well off design.</li>
+        <li><b>The mixer runs deep subsonic across the whole line.</b> At the design point the mixer hot-inlet
+        Mach is 0.534, far from the M&nbsp;=&nbsp;1 frozen-area choke; throttling down raises the bypass ratio
+        and lowers it further (to 0.2816 at 1600&nbsp;&deg;R). A momentum mixer with a frozen inlet area has a
+        fold at hot-inlet Mach&nbsp;=&nbsp;1 (the area is stationary in Mach there); this benchmark point stays
+        well clear of it.</li>
+        <li><b>The two-spool off-design Jacobian is ill-conditioned raw; it is solved scaled.</b> With the
+        momentum mixer, the raw off-design Jacobian condition number is 6.7&times;10<sup>17</sup> (past
+        1/machine-epsilon). Solving in naturally row/column-scaled coordinates, with the root mapped back
+        exactly, brings it to 2.6&times;10<sup>10</sup>, and the raw residuals are satisfied at the scaled
+        solution to 5.8&times;10<sup>&minus;8</sup>. This is enabled automatically when a momentum mixer is
+        present; single-spool and mass-weighted-mixer engines keep the unscaled path.</li>
+      </ul>
+    </div>
+  </div>
+  <p class="small">Both codes' floors are continuation-step-dependent, not a fixed property of the engine; a
+  finer step would likely move both deeper. <b>Recorded limit on solver-statistics parity.</b> PyCycle reports
+  Newton iteration counts (design 4&ndash;5, off-design 2&ndash;3 per point, up to 19 at one deep point) and
+  final residual norms ~10<sup>&minus;7</sup> to 10<sup>&minus;8</sup>. PowerCycles' result surfaces a
+  convergence predicate but not the Newton iteration count &mdash; a limit of the result interface, recorded
+  here.</p>
+</section>
+
+<!-- ============================================================ 5 DESIGN CHOICES -->
+<section id="choices">
+  <h2>5&nbsp;&middot;&nbsp;The design choices behind PowerCycles</h2>
+  <p>PowerCycles compiles a declared engine to a <b>residual program</b> &mdash; a list of unknown columns and
+  equations (each written left-hand&nbsp;side&nbsp;&minus;&nbsp;right-hand&nbsp;side&nbsp;=&nbsp;0) &mdash;
+  solved by Newton's method through NonlinearSolve.jl. The decisions below are what let one authored
+  description become both the design (sizing) solve and the off-design (running) solve, and let the same code
+  that runs a single-spool turbojet run this two-spool turbofan. Each states the decision in one sentence, why
+  it was made, and what it measurably buys &mdash; open each to read it.</p>
+
+  <figure class="panel">
+    <div id="partition"></div>
+    <figcaption><b>One authored manifest, two compiled partitions.</b> The turbofan compiles to a
+    137&times;137 <span style="color:var(--des)">design</span> system and a 119&times;119
+    <span style="color:var(--od)">off-design</span> system. The columns that separate them are the sized
+    quantities &mdash; the five machines' map scale factors and the fixed geometry such as the nozzle throat
+    area &mdash; which the design solve computes and the off-design solve reads frozen. The single-spool
+    turbojet is 46&times;46 / 38&times;38 by the same mechanism. Design-mode map partials are analytic: the
+    scale factor enters the map relation linearly, so its Jacobian entry is exactly the negative map value,
+    with no differentiation through the interpolated table.</figcaption>
+  </figure>
+
+  <details class="dc" open>
+    <summary><span class="tag">residual IR</span>One graph, two partitions<span class="arw">&#9656;</span></summary>
+    <div class="body">
+      <p class="one">One authored engine compiles to a design partition that solves the sizing scalars and an
+      off-design partition that freezes them and solves the running engine &mdash; the same equations, read
+      from two sides.</p>
+      <p><b>Lineage.</b> Toggling a solved/frozen split between a design run and a running (off-design) run of
+      one engine model is standard cycle-matching practice, not new here. NPSS (Numerical Propulsion System
+      Simulation) does it with <code>autoSetup</code>: one model, with the solver's independent/dependent
+      variable list switched between design and off-design. PyCycle does it by building two separate OpenMDAO
+      Group instances of the same cycle class &mdash; <code>pyc_add_pnt('DESIGN', MixedFlowTurbofan(design=True,
+      ...))</code> and, per off-design point, <code>pyc_add_pnt(pt, MixedFlowTurbofan(design=False, ...))</code>
+      (<code>example_cycles/mixedflow_turbofan.py:232,282</code>) &mdash; then wiring the two instances with one
+      <code>pyc_connect_des_od(...)</code> call per transferred quantity (40 such calls in this deck: one per
+      map scale factor and per sized area).</p>
+      <p><b>What changes here.</b> PowerCycles compiles one residual system; design and off-design are a row tag
+      on that one system, not two model instances. There is no second model object to build and no per-quantity
+      transfer call to author or keep in sync &mdash; the off-design freeze set is read directly off each
+      component's own declarations (which of its columns are design-only) rather than wired quantity by
+      quantity. Both partitions share the same kernels and the same sparsity pattern; only the frozen/solved
+      column split changes between them. One consequence: PowerCycles' cold start has no separate off-design
+      anchor solve to run, because there is only ever one compiled system, evaluated with a different column
+      split &mdash; PyCycle's cold start, by contrast, already contains one off-design solve
+      (<a href="#perf">&sect;4</a>).</p>
+      <div class="bought">Measured: turbofan <b>137&times;137 design</b>, <b>119&times;119 off-design</b>;
+      turbojet 46/38 by the same mechanism. Map partials are analytic (each map resampled once onto a uniform
+      grid, storing value plus derivatives), so the Jacobian never differentiates through the interpolated
+      table.</div>
+    </div>
+  </details>
+
+  <details class="dc">
+    <summary><span class="tag">assemble</span>assemble(cycle) &rarr; AssembledCycle: build once, solve many<span class="arw">&#9656;</span></summary>
+    <div class="body">
+      <p class="one">Turning a declared cycle into its solvable form &mdash; emit each component's rows,
+      propagate the gas along the connections, merge wired stations into one column each, check the system is
+      square (raising on any mismatch), compile &mdash; happens once, in one module, producing an
+      <code>AssembledCycle</code> value whose manifest and compiled per-mode programs are publicly
+      reachable.</p>
+      <p><b>Why.</b> Assemble once, solve many: a throttle sweep or optimization loop re-solves without
+      re-assembling, and tests read the assembled system through public handles rather than internal names.
+      Component <code>emit!</code> bodies are mostly equations because a flow port is a struct that owns its
+      boundary-variable block (ADR-0014: one call mints a port's Tt/Pt/mdot columns and returns the port),
+      collapsing the boundary bookkeeping that would otherwise run about nine lines per physics equation.</p>
+      <div class="bought">Measured: a warm design re-solve is <b>0.66&nbsp;ms</b>, so a swept operating line
+      pays assembly once and each point is sub-millisecond. <code>solve(cycle, cond)</code> stays a one-call
+      convenience that assembles then solves.</div>
+    </div>
+  </details>
+
+  <details class="dc">
+    <summary><span class="tag">ADR-0016</span>Stream-gas descriptor and the capture rule<span class="arw">&#9656;</span></summary>
+    <div class="body">
+      <p class="one">Every flow port declares its stream gas (ADR-0016: a flow port carries a gas descriptor
+      &mdash; either a frozen fixed composition, or a combustion system paired with the solved fuel-air-ratio
+      column, recomputed each kernel call), so the assembly propagates gas identity along connections instead
+      of the author threading it component to component.</p>
+      <p><b>The capture rule (the three-place rule).</b> Anything that depends on the current Newton iterate
+      lives in exactly one of three places:</p>
+      <div class="kv">
+        <span class="k">1. a column in x</span><span>the solver rewrites it every iteration (Tt, Pt, mdot, FAR)</span>
+        <span class="k">2. recomputed in kernels</span><span>from columns in x &mdash; enthalpy from the live total temperature; composition from the live fuel-air ratio, as products(system, FAR)</span>
+        <span class="k">3. a build-time constant</span><span>true constants only: the combustion system, port nominal values, frozen areas</span>
+      </div>
+      <p><b>Why it matters.</b> Storing a mole-fraction vector at a port would move composition from place&nbsp;2
+      into place&nbsp;3 &mdash; the solver would iterate the fuel-air ratio while the composition stayed frozen
+      at the build-time guess, and it would sever the fuel-air-ratio derivative: during the Jacobian evaluation
+      the fuel-air ratio enters kernels as a forward-mode dual number, so recomputing composition as
+      products(system, FAR) carries the property sensitivity into the fuel-air-ratio column. Composition tracks
+      the solved fuel-air ratio because gas properties are temperature-varying and formation-inclusive with hot
+      composition coupled to the solved fuel-air ratio (ADR-0006).</p>
+      <div class="bought">Measured: this coupling is why the cold-side stations match to under 0.01% (matched
+      air thermodynamics) while the hot-side turbine pressure ratios read a well-separated
+      +0.12% / +0.12% thermodynamics residual (<a href="#design-acc">&sect;2</a>). Gas descriptors propagate
+      along the connections, so the author does not thread gas identity component to component.</div>
+    </div>
+  </details>
+
+  <details class="dc">
+    <summary><span class="tag">cooling model</span>Cooling coolant carries turbine work<span class="arw">&#9656;</span></summary>
+    <div class="body">
+      <p class="one">Each turbine-cooling stream is credited with the shaft work of an isentropic expansion
+      from its entry total pressure to the turbine exit, at the turbine efficiency, then mixes into the turbine
+      exit (diluting and cooling it) &mdash; matching PyCycle's turbine element.</p>
+      <p><b>How it works.</b> A cooling bleed is a small flow tapped from the compressor to cool a turbine. Its
+      entry total pressure is set by a fraction <code>frac_P</code> between the turbine inlet and exit; both
+      benchmark injections use <code>frac_P&nbsp;=&nbsp;1</code> (coolant enters at the turbine inlet pressure),
+      the deck's value. The coolant's work is
+      <span class="eq">W = mdot&middot;&eta;<sub>t</sub>&middot;(h(coolant, Tt) &minus; h(coolant, T<sub>ideal</sub>))</span>,
+      with T<sub>ideal</sub> from the isentropic drop to the turbine exit pressure; it enters the turbine's
+      shaft-power balance. Setting the coolant flow or <code>frac_P</code> to zero recovers a zero-work
+      boundary exactly.</p>
+      <p><b>Why.</b> PyCycle's turbine (<code>EnthalpyAndPower</code>/<code>BleedPressure</code>) credits the
+      coolant with exactly this expansion work; matching the semantics term-for-term is what makes the two
+      codes' turbine power balances comparable. From PyCycle's solved deck the cooling streams supply
+      <span class="num">129&thinsp;528&nbsp;W</span> (cool3, 2.68% of HPT shaft power) and
+      <span class="num">151&thinsp;701&nbsp;W</span> (cool1, 1.90% of LPT shaft power).</p>
+      <div class="bought">Measured: with the work basis matched, each turbine's pressure-ratio residual is
+      <b>+0.12%</b> (the hot-gas thermodynamics class), and the LPT-exit pressure Pt5 agrees to
+      <b>&minus;0.24%</b> (<a href="#design-acc">&sect;2</a>).</div>
+    </div>
+  </details>
+
+  <details class="dc">
+    <summary><span class="tag">ADR-0013</span>A torque-summing Shaft component per spool<span class="arw">&#9656;</span></summary>
+    <div class="body">
+      <p class="one">Each spool is one Shaft component owning that spool's torque balance (ADR-0013: a
+      torque-summing Shaft with role-named ports and per-machine torque columns); machines expose a shaft port
+      carrying (speed, torque), and wiring a machine to the Shaft is an ordinary merge connection.</p>
+      <p><b>How it closes.</b> The spool speed merges to one column across the whole spool; each machine keeps
+      its thermodynamic shaft-power column and gains a torque column closed by the link row
+      <code>torque&middot;speed &minus; Pshaft = 0</code>. The Shaft's balance row is
+      <code>&eta;<sub>mech</sub>&middot;&Sigma;(turbine torques) &minus; &Sigma;(compressor torques) &minus;
+      P<sub>extract</sub>/speed = 0</code>.</p>
+      <p><b>Why torque, not power.</b> Electric-machine maps are natively (speed, torque)-parameterized; the
+      balance is one-to-one with PyCycle's Shaft element; and shaft transients integrate torque natively. Two
+      spools of two or more machines each need a reusable Shaft, not a hand-written power-balance row per
+      engine.</p>
+      <div class="bought">Measured: both spool balances close to machine zero at the turbofan design point
+      (LP relative residual 1.3&times;10<sup>&minus;16</sup>, HP 0.0); no engine carries a hand-written shaft
+      power-balance row. Recorded conditioning choice (ADR-0013 amendment): torque columns store a normalized
+      auxiliary Pshaft/(10<sup>7</sup>&nbsp;W&middot;speed), O(1) by construction &mdash; a physical-magnitude
+      torque would put a ~10<sup>7</sup> entry into the speed column and spike the raw Jacobian condition
+      number; the torque-sum balance is scale-invariant, recovering the power balance exactly. Physical
+      spool-speed units are filed work.</div>
+    </div>
+  </details>
+
+  <details class="dc">
+    <summary><span class="tag">ADR-0015</span>Column ids generated from (owner, quantity)<span class="arw">&#9656;</span></summary>
+    <div class="body">
+      <p class="one">A component-local column id is generated as <code>quantity_owner</code> (ADR-0015: column
+      ids are generated from the (owner, quantity) pair, never authored), so the author writes the quantity
+      name and the concrete symbol is a build detail; everything outside the compiled program addresses the
+      pair (owner, quantity).</p>
+      <p><b>Why.</b> Without generated ids, a component's column ids are hand-typed: one bypass-engine cycle
+      spelled nine column-id keywords per compressor while its turbine exposed none, so two turbine instances
+      collided at build time. Generated ids
+      make "two of the same machine never collide" hold by construction &mdash; a fan and an HPC coexist in one
+      cycle without their columns clashing.</p>
+      <div class="bought">Measured: the result surface reads by pair &mdash; <code>des[:fan, :PR]</code>,
+      <code>des[:hpc, :omega]</code> &mdash; with no hand-spelled ids. The result type discovers its stations
+      and components from the assembled manifest, so the same accessors read any engine, not a hardcoded
+      turbojet station list.</div>
+    </div>
+  </details>
+
+  <details class="dc">
+    <summary><span class="tag">seed march</span>The design solve seeds itself<span class="arw">&#9656;</span></summary>
+    <div class="body">
+      <p class="one"><code>design_seed(asm, cond)</code> walks the gas path once in topological order (ambient
+      onward, from the connection graph) and evaluates each component's rough design algebra &mdash; a
+      compressor its pressure ratio, the burner its Tt4 target, a turbine a work estimate, the nozzle an
+      expansion &mdash; filling a full-length starting guess with no Newton iteration.</p>
+      <p><b>Why.</b> Any engine composed from the library then solves at its design point with no hand-written
+      starting-guess table, whatever its pressure ratios or bypass ratio &mdash; needed per point by an
+      optimization study that re-sizes the engine each evaluation.</p>
+      <div class="bought">Measured: replacing a bypass engine's <b>69-entry hand-written seed table</b> with the
+      march reaches the same root (mixer-exit pressure, fan map scalars, mixer Mach
+      numbers all unchanged), and the two-spool turbofan converges from the march with no seed table.</div>
+    </div>
+  </details>
+
+  <details class="dc">
+    <summary><span class="tag">throttles</span>Spool- and station-qualified corrected speed (N1c2)<span class="arw">&#9656;</span></summary>
+    <div class="body">
+      <p class="one">On a multi-spool engine, a corrected-speed throttle names which machine's speed it fixes:
+      the Corrected throttle is qualified by (spool, station) &mdash; the industry NkcS label &mdash; so
+      <code>N1c2</code> is spool 1 referred to station 2, the fan's corrected speed.</p>
+      <p><b>Why.</b> Each machine's corrected speed is referred at its own inlet station, so one corrected
+      speed is ambiguous across spools. The LPC rides the same LP spool as the fan but at a hotter inlet, so its
+      corrected speed is a different number at the same physical shaft speed &mdash; the station has to qualify
+      the handle.</p>
+      <div class="bought">Measured: N1c2 and Tt4 both throttle the off-design turbofan; leaving the
+      qualification off defaults to the LP lead (the fan), so the single-spool turbojet's unqualified Corrected
+      keeps working unchanged. The global handles (Tt4, fuel flow, net thrust) need no qualification.</div>
+    </div>
+  </details>
+
+  <details class="dc">
+    <summary><span class="tag">momentum mixer</span>Impulse balance and off-design redistribution<span class="arw">&#9656;</span></summary>
+    <div class="body">
+      <p class="one">The mixer closes its outlet total pressure from a momentum (impulse) balance &mdash; the
+      sum of the two inlet stream thrusts equals the outlet stream thrust, where stream thrust is
+      <code>Ps&middot;A + mdot&middot;V</code> (static pressure &times; area plus momentum flux) &mdash;
+      matching PyCycle's mixer, rather than a mass-flow-weighted total-pressure average.</p>
+      <p><b>The static-pressure-match row does two jobs.</b> At the mixing plane the two streams share one
+      static pressure, enforced by the row <code>Ps_hot = Ps_cold</code>. At <b>design</b> it sizes the hot
+      inlet area (with the cold Mach pinned). <b>Off-design</b>, with both inlet areas frozen, the same row
+      instead drives the upstream splitter's split fraction &mdash; a solved off-design column &mdash; so the
+      bypass ratio <i>redistributes</i> as the engine throttles. This is the closure PyCycle balances
+      (<code>splitter.BPR</code> against the mixing-plane static pressures) and NPSS (Numerical Propulsion
+      System Simulation) uses (<code>Mixer.int dep_errPs</code> active off-design, <code>Splitter ind_BPR</code>
+      freed). A freed
+      splitter adds one off-design column; the active row adds one; they pair one-for-one, keeping the system
+      square.</p>
+      <p><b>Why.</b> A real mixer conserves momentum; the mass-weighted average is exact only when the two inlet
+      dynamic pressures are equal and grows wrong as the inlet Mach numbers diverge. And a fixed-geometry mixer
+      physically redistributes flow between core and bypass as pressures shift with throttle &mdash; freezing
+      the split would hold the bypass ratio at its design value everywhere.</p>
+      <div class="bought">Measured: on two matched dry-air streams (isolating the algorithm from combustion
+      thermodynamics) the outlet total pressure agrees with PyCycle to <b>+19&nbsp;Pa (+0.0085%)</b>; at the
+      turbofan's engine states the mixer-exit total pressure agrees to <b>&minus;116&nbsp;Pa
+      (&minus;0.10%)</b>. Off-design, the redistribution makes the bypass ratio migrate with PyCycle's across
+      the throttle sweep (<a href="#offdesign">&sect;3</a>).</div>
+    </div>
+  </details>
+
+  <details class="dc">
+    <summary><span class="tag">afterburner</span>Reheat on the cumulative fuel-air-ratio axis<span class="arw">&#9656;</span></summary>
+    <div class="body">
+      <p class="one">The Afterburner is a second burn on the same fuel axis: it mints a new cumulative
+      fuel-air-ratio column (fuel per kg of original air) and its energy balance carries the upstream and its
+      own fuel-air ratio in one row, reducing exactly to the burner when the upstream fuel-air ratio is
+      zero.</p>
+      <p><b>Why.</b> This is the exemplar the stream-gas descriptor (ADR-0016, above) was designed for: a
+      second combustor on one fuel axis needs no new machinery, only a new cumulative fuel-air-ratio column and
+      an energy row that reads both. The mixer already rebases the fuel-air ratio to total air, so the outlet
+      column is cumulative on the whole air flow and the performance leaf counts both burns.</p>
+      <div class="bought">Measured: the reference turbofan assembles with the afterburner in the path; unfueled,
+      it reproduces the dry engine to solver tolerance (this comparison runs it dry). A lit like-for-like
+      cross-check against PyCycle's wet example is filed work (<a href="#limits">&sect;7</a>).</div>
+    </div>
+  </details>
+</section>
+
+<!-- ============================================================ 6 HISTORY (single collapsed record) -->
+<section id="history">
+  <h2>6&nbsp;&middot;&nbsp;How this comparison reached its current state</h2>
+  <p>The section below is optional reading. The rest of this page states the current measured comparison as
+  plain fact; this one records the two model changes that produced it and what they taught &mdash; the only
+  place the page looks backward.</p>
+
+  <details class="hist">
+    <summary>How this comparison reached its current state &mdash; the two model changes and what they taught<span class="arw">&#9656;</span></summary>
+    <div class="body">
+      <h4>The symptom</h4>
+      <p>The design point's imposed targets (thrust, burner-exit temperature, bypass ratio) matched by
+      construction, and the cold-side stations matched to under 0.01%. But two things did not fit PyCycle. At
+      the design point the low-pressure-turbine-exit total pressure Pt5 was <b>&minus;6.15%</b> low
+      (116&thinsp;839 vs 124&thinsp;493&nbsp;Pa), and the mixer extraction ratio sat entirely below unity
+      (0.985) while PyCycle's straddled it. Off-design, the throttle-sweep <i>shapes</i> diverged from PyCycle
+      at every point: the bypass ratio stayed frozen at its design value 2.41334 while PyCycle's migrated to
+      2.972 (+23%), and the part-power fuel-consumption hook &mdash; PyCycle's interior TSFC minimum &mdash; was
+      absent; the PowerCycles curve was monotone over the same range.</p>
+
+      <h4>The diagnosis</h4>
+      <ul>
+        <li><b>Reading PyCycle's balance structure.</b> Its off-design closure frees the splitter's bypass
+        ratio and balances it against the mixing-plane static-pressure match &mdash; a coupling PowerCycles did
+        not have, because its splitter froze its split fraction as a build-time constant in both partitions and
+        its mixer static-pressure-match row was design-only.</li>
+        <li><b>Sweep forensics.</b> Normalizing the sweeps did not collapse them onto one curve; the bypass
+        ratio was frozen to six digits across every throttle point and both flight conditions while PyCycle's
+        moved +23%. The divergence concentrated on the low-pressure spool and the mixer &mdash; the signature of
+        a frozen split, not a thermodynamics difference.</li>
+        <li><b>A control experiment isolated the design-level cause.</b> Setting both cooling bleed fractions to
+        zero on both codes collapsed the design-point Pt5 difference from <b>&minus;6.15%</b> to
+        <b>&minus;0.96%</b> and moved the extraction ratio onto the same side of unity as PyCycle. Removing
+        cooling closed about 5.2 of the 6.1 percentage points, isolating the turbine cooling-work model &mdash;
+        not hot-gas thermodynamics &mdash; as the dominant design-level cause. The ratio of specific heats was
+        ruled out directly: it differs under 1% between the two gas models at matched temperatures and flips
+        sign across the expansion &mdash; too small, and the wrong shape, to account for a 6% pressure gap.</li>
+      </ul>
+
+      <h4>The two model changes</h4>
+      <ul>
+        <li><b>Turbine cooling model: coolant work extraction.</b> Each cooling stream is now credited with the
+        shaft work of an isentropic expansion from its <code>frac_P</code>-interpolated entry total pressure to
+        the turbine exit, at the turbine efficiency &mdash; the tap-pressure expansion PyCycle's turbine element
+        performs. The former model gave the coolant no turbine work, so the main flow alone had to supply the
+        same shaft power and needed a larger pressure ratio to do it; that larger ratio compounded through both
+        turbines into the Pt5 difference. (Described as it works now in <a href="#choices">&sect;5</a>.)</li>
+        <li><b>Off-design bypass redistribution.</b> The splitter's split fraction became a solved off-design
+        column, closed by keeping the mixer's static-pressure-match row active off-design &mdash; the same
+        free-column / active-row pairing PyCycle and NPSS use. The bypass ratio now redistributes with throttle
+        instead of staying frozen. (Described as it works now in <a href="#choices">&sect;5</a>.)</li>
+      </ul>
+
+      <h4>Before and after</h4>
+      <div class="scroll"><table>
+        <thead><tr><th>quantity</th><th>before</th><th>current</th><th>PyCycle</th></tr></thead>
+        <tbody>
+          <tr><td>LPT-exit total pressure Pt5</td><td class="num neg">&minus;6.15%</td>
+            <td class="num">&minus;0.24%</td><td class="num">reference</td></tr>
+          <tr><td>mixer extraction ratio ER (design)</td><td class="num">0.985 (below unity)</td>
+            <td class="num">1.0474</td><td class="num">1.0500</td></tr>
+          <tr><td>off-design bypass ratio (deep throttle)</td><td class="num">frozen at 2.4133</td>
+            <td class="num">2.9266</td><td class="num">2.9722</td></tr>
+          <tr><td>part-power TSFC hook</td><td>absent (monotone)</td>
+            <td>present, within one 50&nbsp;&deg;R step of PyCycle's</td><td>interior minimum</td></tr>
+        </tbody>
+      </table></div>
+
+      <h4>The learning</h4>
+      <ul>
+        <li><b>Design points match by construction.</b> The imposed targets are pinned on both codes, so
+        agreement there says little about the models. The model differences live off design and in the outputs
+        that were not pinned &mdash; here, the turbine pressure ratios and the swept shapes.</li>
+        <li><b>Off-design shape is the discriminating test.</b> The frozen split produced a design point that
+        looked close on its pinned quantities but a sweep whose shape diverged from PyCycle at every point; the
+        sweep comparison is what exposed it.</li>
+        <li><b>A recorded deferral carries an unmeasured cost until something measures it.</b> The frozen split
+        was a documented simplification of the splitter; its cost stayed invisible until the cross-code sweep
+        made the bypass-ratio trajectory and the missing hook visible. Freeing the split cost one solved column
+        and one active row.</li>
+      </ul>
+    </div>
+  </details>
+</section>
+
+<!-- ============================================================ 7 LIMITS + ROADMAP -->
+<section id="limits">
+  <h2>7&nbsp;&middot;&nbsp;Stated limits, and the filed work</h2>
+  <h3>What this comparison does not settle</h3>
+  <ul>
+    <li><b>A hot-gas thermodynamics residual remains.</b> Each turbine carries a +0.12% pressure-ratio residual
+    (same sign, compounding to &minus;0.24% on Pt5), and TSFC runs &minus;1.04% at design. This is the
+    frozen-products (ours) vs chemical-equilibrium (PyCycle) combustion difference itself &mdash; under 1% in
+    the ratio of specific heats at matched temperatures, sign-flipping across each expansion &mdash; measured
+    and attributed, not tuned away.</li>
+    <li><b>The design bypass ratio is imposed</b> at PyCycle's solved value 2.41334, so the design mixer
+    extraction ratio is an output, not a matched constraint. Off-design the bypass ratio is solved and is a
+    compared quantity.</li>
+    <li><b>The 250&nbsp;hp high-pressure shaft offtake is inert on both sides</b> (deck wiring); it constrains
+    nothing here.</li>
+    <li><b>The like-for-like accuracy statement is the bilinear arm;</b> the Hermite arm is a bounded, named
+    deviation (<a href="#interp">&sect;3</a>).</li>
+    <li><b>Afterburner coverage is dry.</b> The Afterburner component exists and reproduces the dry engine
+    exactly when unfueled; a lit like-for-like cross-check against PyCycle's wet example is open.</li>
+    <li><b>Solver-statistics parity is partial:</b> the result surfaces a convergence predicate but not the
+    Newton iteration count.</li>
+  </ul>
+
+  <h3>Filed work, with task ids</h3>
+  <div class="scroll"><table>
+    <thead><tr><th>task</th><th>what</th><th>status / measured so far</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">POWCYC-030</td><td class="cause">Afterburner lit cross-check: one afterburner-lit
+        design point against PyCycle's wet example</td>
+        <td class="cause">in progress; the component assembles and reproduces the dry engine unfueled, the wet
+        point is open</td></tr>
+      <tr><td class="mono">POWCYC-029</td><td class="cause">A fan map with native design pressure ratio in the
+        3&ndash;4 class, so the fan's design-mode scale factors land near 1</td>
+        <td class="cause">the reference fan already runs AXI5 (the map PyCycle scales) at scale factor 0.55; a
+        higher-native-PR map is a fidelity improvement to scope or close</td></tr>
+      <tr><td class="mono">POWCYC-028</td><td class="cause">Branch-free nozzle via a smoothed complementarity
+        row, replacing the two swapped choked/unchoked programs</td>
+        <td class="cause">to do; a standalone spike reproduces both branches from one row</td></tr>
+      <tr><td class="mono">POWCYC-027</td><td class="cause">Physical spool-speed units: the speed and torque
+        columns are normalized auxiliaries today</td>
+        <td class="cause">to do; needed for shaft-inertia transients</td></tr>
+      <tr><td class="mono">POWCYC-026</td><td class="cause">Restore an off-design convergence envelope narrowed
+        by the shaft torque coupling on a single-spool branch-switch point</td>
+        <td class="cause">to do; a scaled-Jacobian path exists to test against the withdrawn point (the
+        redistribution-enabled turbofan shows no floor to the probe bound)</td></tr>
+      <tr><td class="mono">POWCYC-025</td><td class="cause">Compile-cost benchmark: the one-call design solve
+        compiles all three programs (design + two nozzle branches)</td>
+        <td class="cause">to do; decide lazy vs eager compilation with a measured cost</td></tr>
+      <tr><td class="mono">result API</td><td class="cause">Surface Newton iteration count and final residual
+        norm on the result value (solver-statistics parity with PyCycle)</td>
+        <td class="cause">recorded gap; the convergence predicate is surfaced, the iteration count is not</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<div class="foot" id="sources">
+  <h3 style="margin-top:0">Sources &mdash; every number on this page traces to one of these</h3>
+  <ul>
+    <li><code>docs/physics/turbofan_pycycle_comparison.md</code> &mdash; the binding measured record: design
+    table, the Pt5 decomposition and TSFC identity, the off-design sweep tables, the convergence floors, the
+    Hermite-arm ranges, and the timing with its framing.</li>
+    <li><code>sandbox/validation_turbofan/powercycles_mixedflow_dry_design.json</code> &mdash; PowerCycles'
+    design point plus both throttle sweeps on both interpolation arms (regenerated at commit
+    <code>8d1be15</code>).</li>
+    <li><code>sandbox/validation_turbofan/pycycle_mixedflow_dry_design.json</code>,
+    <code>...sweep_designcond.json</code>, and <code>...sweep_30kft_MN0p9.json</code> &mdash; PyCycle's design
+    point and its two throttle sweeps.</li>
+    <li><code>sandbox/validation_turbofan/{pycycle,powercycles}_mixedflow_dry_timing.json</code> &mdash; timing
+    with machine and provenance metadata.</li>
+    <li><code>docs/physics/mixer_momentum.md</code> &sect;4 (the +19&nbsp;Pa dry-air algorithm cross-check) and
+    &sect;7 (the off-design split-redistribution closure).</li>
+    <li><code>sandbox/validation_turbofan/nocooling/compare_nocooling_summary.json</code> &mdash; the
+    turbine-cooling control experiment cited in <a href="#history">&sect;6</a>.</li>
+    <li><code>docs/adr/</code> 0006, 0011, 0013, 0014, 0015, 0016 &mdash; the design-decision records cited
+    above, each restated where cited.</li>
+    <li>Charts and tables are generated by <code>sandbox/walkthrough_build_v2/extract_data.py</code> from the
+    JSON above; the data are embedded inline in this file (no external requests). The figure-to-source map is
+    <code>sandbox/walkthrough_build_v2/SOURCES.md</code>.</li>
+  </ul>
+  <p class="small">PowerCycles.jl is pinned at commit <code>a4311c3</code> (Julia 1.12.6); the PyCycle clone at
+  <code>ee7e161</code> (imported version 4.4.1-dev; OpenMDAO 3.44.0, NumPy 1.26.4, SciPy 1.17.1); timing on an
+  Apple M2 Pro, single-thread BLAS on both sides. This page is a local artifact
+  (<code>archive/walkthroughs/</code>); it is not part of the shipped repository.</p>
+</div>
+
+</div><!-- /wrap -->
+
+<div class="tt" id="tooltip"></div>
+
+<script id="DATA" type="application/json">
+{"stations":[{"num":"2","label":"inlet duct exit","side":"cold","Tt_ours":246.89238889420068,"Tt_pyc":246.89133448021164,"dTt":0.0004270761431373791,"Pt_ours":35929.247214241186,"Pt_pyc":35928.71104820542,"dPt":0.0014923052347947665},{"num":"21","label":"fan exit","side":"cold","Tt_ours":359.0023625349806,"Tt_pyc":359.00083816739243,"dTt":0.00042461393570615737,"Pt_ours":118566.51580699591,"Pt_pyc":118564.74645907787,"dPt":0.0014923052348076538},{"num":"22","label":"core-splitter duct","side":"cold","Tt_ours":359.0023625349806,"Tt_pyc":359.0008381673925,"dTt":0.0004246139356903235,"Pt_ours":117997.39653112233,"Pt_pyc":117995.6356760743,"dPt":0.0014923052348057003},{"num":"24","label":"LPC exit","side":"cold","Tt_ours":438.8640931193885,"Tt_pyc":438.8622329132286,"dTt":0.0004238701853097958,"Pt_ours":228324.96228772172,"Pt_pyc":228321.55503320377,"dPt":0.001492305234806242},{"num":"25","label":"LPC duct exit","side":"cold","Tt_ours":438.8640931193885,"Tt_pyc":438.86223300014643,"dTt":0.00042385037995572853,"Pt_ours":226018.88016861572,"Pt_pyc":226015.50732736842,"dPt":0.0014923052347969577},{"num":"3","label":"HPC exit","side":"cold","Tt_ours":715.0524478605913,"Tt_pyc":715.0470736494929,"dTt":0.0007515884333358152,"Pt_ours":1107492.512826217,"Pt_pyc":1107475.9859041052,"dPt":0.0014923052348058928},{"num":"4","label":"burner exit","side":"cold","Tt_ours":1777.7777777777778,"Tt_pyc":1777.7777777777778,"dTt":0.0,"Pt_ours":1047687.9171336014,"Pt_pyc":1047672.2826652835,"dPt":0.0014923052348080263},{"num":"45","label":"HPT exit","side":"hot","Tt_ours":1498.3531795289316,"Tt_pyc":1497.3511496836375,"dTt":0.06692016401802986,"Pt_ours":512677.71666006936,"Pt_pyc":513300.6580779421,"dPt":-0.12135994919728714},{"num":"46","label":"HPT duct exit","side":"hot","Tt_ours":1498.3531795289316,"Tt_pyc":1497.3509638292214,"dTt":0.06693258453897678,"Pt_ours":510063.0603051031,"Pt_pyc":510682.8247217446,"dPt":-0.12135994919727096},{"num":"5","label":"LPT exit","side":"hot","Tt_ours":1100.6625841693522,"Tt_pyc":1095.0810014744588,"dTt":0.5096958752254909,"Pt_ours":124189.24163303955,"Pt_pyc":124492.98379108458,"dPt":-0.24398335455976433},{"num":"55","label":"LPT duct exit","side":"hot","Tt_ours":1100.6625841693522,"Tt_pyc":1095.0810042278245,"dTt":0.509695622513647,"Pt_ours":122860.416747566,"Pt_pyc":123160.90886451997,"dPt":-0.24398335455977196},{"num":"13","label":"bypass duct exit","side":"cold","Tt_ours":359.0023625349806,"Tt_pyc":359.0008381673925,"dTt":0.0004246139356903235,"Pt_ours":117297.85408786105,"Pt_pyc":117296.10367196573,"dPt":0.001492305234808701},{"num":"6","label":"mixer exit","side":"mixed","Tt_ours":599.3757905434768,"Tt_pyc":597.6135349052213,"dTt":0.29488214963789194,"Pt_ours":117350.84107699529,"Pt_pyc":117467.16380846707,"dPt":-0.09902574276965388},{"num":"16","label":"mixer duct exit","side":"mixed","Tt_ours":599.3757905434768,"Tt_pyc":597.6135355198109,"dTt":0.2948820464939963,"Pt_ours":116095.18707747145,"Pt_pyc":116210.26515571645,"dPt":-0.09902574276962763},{"num":"7","label":"afterburner (dry) exit","side":"mixed","Tt_ours":599.3757905434768,"Tt_pyc":597.613538639263,"dTt":0.2948815229699094,"Pt_ours":109826.04697528797,"Pt_pyc":109934.91083730776,"dPt":-0.09902574276964314}],"scalars":[{"name":"net thrust Fn","ours":24465.218883932743,"pyc":24465.218908120754,"d_abs":-2.4188011593651026e-05,"d_rel":-9.88669330304757e-08,"unit":"N","cause":"net-thrust target, imposed on both"},{"name":"inlet air flow mdot_air","ours":58.3975333235184,"pyc":58.50377181758577,"d_abs":-0.10623849406736952,"d_rel":-0.18159255508964478,"unit":"kg/s","cause":"the TSFC identity term: over matched thrust, TSFC_rel = FAR_rel + mdot_air_rel"},{"name":"fuel-air ratio FAR","ours":0.03203759353086047,"pyc":0.03231600502795053,"d_abs":-0.0002784114970900628,"d_rel":-0.8615282020449653,"unit":"-","cause":"hot-gas + fuel thermodynamics (fuel-air ratio to reach Tt4)"},{"name":"gross thrust Fg","ours":38324.61165294255,"pyc":38349.53602984828,"d_abs":-24.924376905728423,"d_rel":-0.06499264263935094,"unit":"N","cause":"gross thrust over matched net thrust and ram drag"},{"name":"TSFC","ours":1.983845491657625e-05,"pyc":2.0047258387079832e-05,"d_abs":-2.0880347050358195e-07,"d_rel":-1.041556239122217,"unit":"kg/(N.s)","cause":"TSFC_rel = FAR_rel + mdot_air_rel = -0.86% + (-0.18%) = -1.04%"},{"name":"overall pressure ratio OPR","ours":30.824261533296003,"pyc":30.494441934889732,"d_abs":0.32981959840627084,"d_rel":1.0815728292732354,"unit":"-","cause":"inlet ram-recovery difference (air-stagnation thermo)"},{"name":"bypass ratio BPR","ours":2.413337877918124,"pyc":2.413337877918124,"d_abs":0.0,"d_rel":0.0,"unit":"-","cause":"imposed at PyCycle's solved value at design; solved off-design"},{"name":"HPT pressure ratio","ours":2.0435604729594092,"pyc":2.041049950312356,"d_abs":0.002510522647053204,"d_rel":0.12300152902524512,"unit":"-","cause":"hot-gas thermodynamics class; +0.12% per turbine, coolant-work basis matched"},{"name":"LPT pressure ratio","ours":4.107143691337309,"pyc":4.1021012523785005,"d_abs":0.005042438958808404,"d_rel":0.12292331779681626,"unit":"-","cause":"hot-gas thermodynamics class; +0.12% per turbine, coolant-work basis matched"},{"name":"mixer extraction ratio ER","ours":1.0474225441118332,"pyc":1.0500000000763534,"d_abs":-0.002577455964520192,"d_rel":-0.24547199660312058,"unit":"-","cause":"ER = Pt_hot/Pt_cold; both codes above unity, same side"},{"name":"mixer hot-inlet Mach M_hot","ours":0.5336624661177307,"pyc":0.5373413683697883,"d_abs":-0.003678902252057581,"d_rel":-0.6846489901231333,"unit":"-","cause":"the hot stream expands to the mixer static pressure at this Pt5"},{"name":"mixer hot-inlet area A_hot","ours":0.15466137256042356,"pyc":0.1534950740076344,"d_abs":0.0011662985527891578,"d_rel":0.7598280012107421,"unit":"m2","cause":"hot Mach at fixed hot mass flow sets the hot-inlet area (continuity)"},{"name":"mixer cold-inlet area A_cold","ours":0.2407222104298159,"pyc":0.2411637504879483,"d_abs":-0.0004415400581324058,"d_rel":-0.18308724144446864,"unit":"m2","cause":"cold stream well-matched (design Mach pinned, cold Pt matches)"},{"name":"nozzle throat area A8","ours":0.3267138078351102,"pyc":0.32651358849059703,"d_abs":0.00020021934451319723,"d_rel":0.061320371209899326,"unit":"m2","cause":"total flow through the choked throat, slightly hotter gas"}],"sweeps":{"A":{"cond":"35,000 ft, flight Mach 0.8","pc_bilinear":[{"Tt4":3200.0,"Fn":24465.218883932746,"mdot_air":58.3975333235184,"TSFC":1.983845491657625e-05,"lpt_PR":4.10714369133731,"ER":1.0474225441118332,"M_hot":0.5336624661177307,"BPR":2.413337877918124},{"Tt4":3150.0,"Fn":23291.6104751608,"mdot_air":57.17639912269499,"TSFC":1.9743401869694522e-05,"lpt_PR":4.0822752643151885,"ER":1.0417443621009386,"M_hot":0.528888314475646,"BPR":2.448312400680869},{"Tt4":3100.0,"Fn":22162.021507529476,"mdot_air":55.98493526786672,"TSFC":1.9651500301844063e-05,"lpt_PR":4.057282811862434,"ER":1.0360548659227862,"M_hot":0.5241153976748234,"BPR":2.4837968394997048},{"Tt4":3050.0,"Fn":21076.453253794833,"mdot_air":54.82473472795889,"TSFC":1.956275112435445e-05,"lpt_PR":4.032210962732075,"ER":1.0303587682176278,"M_hot":0.5193496566927231,"BPR":2.519723632899343},{"Tt4":3000.0,"Fn":20031.498048440313,"mdot_air":53.691981443840156,"TSFC":1.9477812170076526e-05,"lpt_PR":4.007010955528491,"ER":1.0246481162185572,"M_hot":0.5145841786581005,"BPR":2.556145818184429},{"Tt4":2950.0,"Fn":19005.5925377486,"mdot_air":52.54965951334691,"TSFC":1.9403283633673748e-05,"lpt_PR":3.981506689520438,"ER":1.01889829698617,"M_hot":0.5097967826683482,"BPR":2.5932866872279816},{"Tt4":2900.0,"Fn":17905.254491479718,"mdot_air":51.22748708625139,"TSFC":1.937146498394987e-05,"lpt_PR":3.954540694914913,"ER":1.012955504564438,"M_hot":0.504834700439479,"BPR":2.6326866109856795},{"Tt4":2850.0,"Fn":16870.482638598427,"mdot_air":49.969841234124395,"TSFC":1.9345169571332513e-05,"lpt_PR":3.928677257835426,"ER":1.0071874089223904,"M_hot":0.5000604288688301,"BPR":2.670779118598121},{"Tt4":2800.0,"Fn":15891.177887465035,"mdot_air":48.766830740044185,"TSFC":1.9324260513164697e-05,"lpt_PR":3.903094050411362,"ER":1.0014571266803158,"M_hot":0.49534259595566765,"BPR":2.708759291313494},{"Tt4":2750.0,"Fn":14943.058050990287,"mdot_air":47.58376974227148,"TSFC":1.9312888504430204e-05,"lpt_PR":3.8763448063732455,"ER":0.9955605742349838,"M_hot":0.4904724737057161,"BPR":2.748871612327038},{"Tt4":2700.0,"Fn":14040.81014352705,"mdot_air":46.4448108944964,"TSFC":1.9309020888892013e-05,"lpt_PR":3.8493556722885036,"ER":0.9896266319598753,"M_hot":0.48558434790803046,"BPR":2.7896818695147},{"Tt4":2650.0,"Fn":13100.930562410369,"mdot_air":45.19124221558415,"TSFC":1.9352869031427996e-05,"lpt_PR":3.819429543729031,"ER":0.9833198785302044,"M_hot":0.4803440308299247,"BPR":2.8349327341438983},{"Tt4":2600.0,"Fn":12211.812645991828,"mdot_air":43.98972898674901,"TSFC":1.9410593350468797e-05,"lpt_PR":3.789428912228057,"ER":0.9770019360206795,"M_hot":0.47511379092710704,"BPR":2.880721987276792},{"Tt4":2550.0,"Fn":11379.00029035466,"mdot_air":42.85511392484514,"TSFC":1.9478595087914207e-05,"lpt_PR":3.7596468715989673,"ER":0.9707078968214701,"M_hot":0.46992874022387365,"BPR":2.9266237236422574},{"Tt4":2500.0,"Fn":10591.799549178228,"mdot_air":41.772103934253494,"TSFC":1.9560527381694175e-05,"lpt_PR":3.729551247261941,"ER":0.9643689461894903,"M_hot":0.46471900170914027,"BPR":2.9734535654064964}],"pc_hermite":[{"Tt4":3200.0,"Fn":24465.218883932746,"mdot_air":58.3975333235184,"TSFC":1.983845491657625e-05,"lpt_PR":4.10714369133731,"ER":1.0474225441118332,"M_hot":0.5336624661177307,"BPR":2.413337877918124},{"Tt4":3150.0,"Fn":23286.58424611271,"mdot_air":57.19946131680835,"TSFC":1.972946151932828e-05,"lpt_PR":4.07724273220502,"ER":1.04101547256184,"M_hot":0.528178079980327,"BPR":2.4546078431818303},{"Tt4":3100.0,"Fn":22183.871366634186,"mdot_air":56.05136525517715,"TSFC":1.963165128093449e-05,"lpt_PR":4.052799602263299,"ER":1.0353972323879959,"M_hot":0.5234801757223001,"BPR":2.4894859078367695},{"Tt4":3050.0,"Fn":21122.28612323866,"mdot_air":54.92078985389415,"TSFC":1.9542077449030997e-05,"lpt_PR":4.030060638597963,"ER":1.0300219483876465,"M_hot":0.5190347354518601,"BPR":2.522495538681404},{"Tt4":3000.0,"Fn":20075.724794571703,"mdot_air":53.77509843460779,"TSFC":1.9462402456468377e-05,"lpt_PR":4.006923459322381,"ER":1.0245935538348125,"M_hot":0.5145505413361646,"BPR":2.5562647910313405},{"Tt4":2950.0,"Fn":19030.220905420727,"mdot_air":52.594399889369214,"TSFC":1.9395249586186747e-05,"lpt_PR":3.9821944980849535,"ER":1.018950731317303,"M_hot":0.5098697734024152,"BPR":2.5923595898463265},{"Tt4":2900.0,"Fn":18000.027015363266,"mdot_air":51.396919916139495,"TSFC":1.9341637515850047e-05,"lpt_PR":3.9569423191745603,"ER":1.0132405006537968,"M_hot":0.5051388094915711,"BPR":2.6294273429015},{"Tt4":2850.0,"Fn":16987.885501778022,"mdot_air":50.18651661776954,"TSFC":1.9303109777714657e-05,"lpt_PR":3.931284960691887,"ER":1.0074790158520253,"M_hot":0.5003739481800362,"BPR":2.6673223641182955},{"Tt4":2800.0,"Fn":16006.08250939492,"mdot_air":48.986499908644596,"TSFC":1.927696913169554e-05,"lpt_PR":3.9053025702372732,"ER":1.0016758844820024,"M_hot":0.49558506180968226,"BPR":2.705952284161613},{"Tt4":2750.0,"Fn":15055.224728851372,"mdot_air":47.79936671986478,"TSFC":1.9264191928375066e-05,"lpt_PR":3.878959169833376,"ER":0.9958249569208896,"M_hot":0.4907664245791412,"BPR":2.745381484229759},{"Tt4":2700.0,"Fn":14139.49298097282,"mdot_air":46.63582106050106,"TSFC":1.926346007708074e-05,"lpt_PR":3.852055458692679,"ER":0.9899002428320163,"M_hot":0.48589241292173857,"BPR":2.7858981821163655},{"Tt4":2650.0,"Fn":13256.486668161582,"mdot_air":45.49274886313542,"TSFC":1.9277094817258742e-05,"lpt_PR":3.824590334117772,"ER":0.9839017864419832,"M_hot":0.4809630307059263,"BPR":2.8275340484397313},{"Tt4":2600.0,"Fn":12403.19148497188,"mdot_air":44.36372124375349,"TSFC":1.9309706508567352e-05,"lpt_PR":3.7969632725440157,"ER":0.977878483573973,"M_hot":0.4760271648594098,"BPR":2.869762477382518},{"Tt4":2550.0,"Fn":11578.265583758717,"mdot_air":43.24818199807876,"TSFC":1.9363974004885603e-05,"lpt_PR":3.768975120529029,"ER":0.9718035877588718,"M_hot":0.4710587132469007,"BPR":2.912878276003305},{"Tt4":2500.0,"Fn":10779.139021235194,"mdot_air":42.14382830067567,"TSFC":1.9443367179860193e-05,"lpt_PR":3.7401703427389705,"ER":0.9656200481613402,"M_hot":0.46600105421367577,"BPR":2.9575737190925824}],"pyc":[{"Tt4":3200.0,"Fn":24465.218499752933,"mdot_air":58.50377108929754,"TSFC":2.004725850455179e-05,"lpt_PR":4.102101144632541,"ER":1.0500000254528328,"M_hot":0.5373413508559299,"BPR":2.413337882576967},{"Tt4":3150.0,"Fn":23282.53849565314,"mdot_air":57.279193233051465,"TSFC":1.9947611069038893e-05,"lpt_PR":4.077700531511788,"ER":1.0441865813676492,"M_hot":0.5324698069589171,"BPR":2.4483363290753695},{"Tt4":3100.0,"Fn":22145.458231248456,"mdot_air":56.08515659262464,"TSFC":1.9851390540903968e-05,"lpt_PR":4.053109987925401,"ER":1.0383596690797892,"M_hot":0.5275951308167579,"BPR":2.483886003462474},{"Tt4":3050.0,"Fn":21047.50134855205,"mdot_air":54.914715353299606,"TSFC":1.9758963646143973e-05,"lpt_PR":4.028025366275617,"ER":1.0324722952886285,"M_hot":0.5226713148778946,"BPR":2.5204304032567046},{"Tt4":3000.0,"Fn":19975.873851993787,"mdot_air":53.75171070999124,"TSFC":1.9671346229378126e-05,"lpt_PR":4.001716810312869,"ER":1.0264172360670065,"M_hot":0.5175898950854311,"BPR":2.5590627811067868},{"Tt4":2950.0,"Fn":18909.982148129402,"mdot_air":52.553020929977066,"TSFC":1.9599168616972415e-05,"lpt_PR":3.9746942313300972,"ER":1.0202774988956598,"M_hot":0.5124384237045598,"BPR":2.598998857732317},{"Tt4":2900.0,"Fn":17781.477794025443,"mdot_air":51.19144176492858,"TSFC":1.9568497152639036e-05,"lpt_PR":3.9461520529727014,"ER":1.0139457929988704,"M_hot":0.507110155192725,"BPR":2.641345673666452},{"Tt4":2850.0,"Fn":16708.812964741373,"mdot_air":49.87999422421524,"TSFC":1.9544948475229866e-05,"lpt_PR":3.917326939428475,"ER":1.007589229230355,"M_hot":0.5017696356107789,"BPR":2.6845710698986402},{"Tt4":2800.0,"Fn":15683.191623443776,"mdot_air":48.60849072096612,"TSFC":1.9529645468976413e-05,"lpt_PR":3.8876832918942767,"ER":1.0011262754237622,"M_hot":0.49633652381720816,"BPR":2.729518253843266},{"Tt4":2750.0,"Fn":14715.316250244916,"mdot_air":47.39448483166344,"TSFC":1.9521798519478487e-05,"lpt_PR":3.8582972340009682,"ER":0.9947161410575465,"M_hot":0.490971920065378,"BPR":2.7745058451517144},{"Tt4":2700.0,"Fn":13790.300116967217,"mdot_air":46.211857093543536,"TSFC":1.9528282952291297e-05,"lpt_PR":3.829131659814941,"ER":0.9883628793651363,"M_hot":0.48568016848339274,"BPR":2.81943427468734},{"Tt4":2650.0,"Fn":12834.444301520902,"mdot_air":44.924477380269366,"TSFC":1.9583428010326964e-05,"lpt_PR":3.7968488501189115,"ER":0.9816196726816906,"M_hot":0.4800166257171888,"BPR":2.869254375367788},{"Tt4":2600.0,"Fn":11936.127039159936,"mdot_air":43.70217815583331,"TSFC":1.9650902591748964e-05,"lpt_PR":3.764323153564402,"ER":0.9748493946352457,"M_hot":0.4743424686967338,"BPR":2.9201182986237906},{"Tt4":2550.0,"Fn":11090.84515465973,"mdot_air":42.540675518108806,"TSFC":1.973210734980456e-05,"lpt_PR":3.7314167255053974,"ER":0.9680336280860642,"M_hot":0.46864152420171584,"BPR":2.9722138895727244}],"pc_floor_bilinear":2500.0,"pc_floor_hermite":2500.0,"pyc_first_fail":2500.0},"B":{"cond":"30,000 ft, flight Mach 0.9","pc_bilinear":[{"Tt4":3200.0,"Fn":27364.633105825702,"mdot_air":72.02350145318003,"TSFC":2.0804447365443758e-05,"lpt_PR":3.9917625276232043,"ER":1.025613577652681,"M_hot":0.515106291284816,"BPR":2.552571559418017},{"Tt4":3150.0,"Fn":26017.949190057258,"mdot_air":70.55219719962005,"TSFC":2.0738271485509753e-05,"lpt_PR":3.967826709539489,"ER":1.0202001994996015,"M_hot":0.510595588534319,"BPR":2.58762896214037},{"Tt4":3100.0,"Fn":24626.19446480269,"mdot_air":68.94259819287659,"TSFC":2.070135882430706e-05,"lpt_PR":3.943083668788417,"ER":1.0146796422372837,"M_hot":0.5059932557047435,"BPR":2.6240613967934365},{"Tt4":3050.0,"Fn":23279.662986280313,"mdot_air":67.3482685638343,"TSFC":2.0677364597978746e-05,"lpt_PR":3.9188915347500917,"ER":1.0092595205157,"M_hot":0.5015037326772477,"BPR":2.65987766386088},{"Tt4":3000.0,"Fn":21998.727053054696,"mdot_air":65.81547831841289,"TSFC":2.0658530126052327e-05,"lpt_PR":3.8947519678865814,"ER":1.003841140742522,"M_hot":0.4970332769006399,"BPR":2.6959256933651012},{"Tt4":2950.0,"Fn":20754.445766930814,"mdot_air":64.30295723566853,"TSFC":2.0648845129915895e-05,"lpt_PR":3.8694725216984738,"ER":0.9982584384382394,"M_hot":0.49241079105621055,"BPR":2.734065857084452},{"Tt4":2900.0,"Fn":19571.3893662569,"mdot_air":62.84972481847622,"TSFC":2.064544669116892e-05,"lpt_PR":3.8441637731516725,"ER":0.9926659569589573,"M_hot":0.4877990534782841,"BPR":2.77257188627512},{"Tt4":2850.0,"Fn":18354.44366488103,"mdot_air":61.27897381018761,"TSFC":2.0680972701250622e-05,"lpt_PR":3.8165242573885703,"ER":0.9867736809280251,"M_hot":0.4829068461278543,"BPR":2.814654582324918}],"pc_hermite":[{"Tt4":3200.0,"Fn":27441.5223612515,"mdot_air":72.16077300688825,"TSFC":2.078647223431162e-05,"lpt_PR":3.9923485137956694,"ER":1.0256585144931316,"M_hot":0.5151693692367978,"BPR":2.5517966017151665},{"Tt4":3150.0,"Fn":26077.119967359315,"mdot_air":70.6564891200598,"TSFC":2.0724620224901884e-05,"lpt_PR":3.9689320899932885,"ER":1.0203170362701888,"M_hot":0.5107307025886323,"BPR":2.586133699263778},{"Tt4":3100.0,"Fn":24735.09840286667,"mdot_air":69.13556702220222,"TSFC":2.0675279145251003e-05,"lpt_PR":3.9451804356897022,"ER":1.0149320039392127,"M_hot":0.5062637651026205,"BPR":2.621188973896153},{"Tt4":3050.0,"Fn":23417.96936401619,"mdot_air":67.60233853447971,"TSFC":2.0639447441569568e-05,"lpt_PR":3.9210807974404593,"ER":1.0095013008528997,"M_hot":0.5017668142917282,"BPR":2.656988777868237},{"Tt4":3000.0,"Fn":22139.47275838395,"mdot_air":66.08271235488333,"TSFC":2.0614795724927887e-05,"lpt_PR":3.8967048349506404,"ER":1.0040332379156196,"M_hot":0.4972485041596911,"BPR":2.6934519912303676},{"Tt4":2950.0,"Fn":20899.351504756294,"mdot_air":64.57775357408363,"TSFC":2.06023994591521e-05,"lpt_PR":3.872017575493977,"ER":0.9985218185280499,"M_hot":0.4927040703751804,"BPR":2.730639706341956},{"Tt4":2900.0,"Fn":19703.560599798373,"mdot_air":63.10183566904427,"TSFC":2.0600736451443857e-05,"lpt_PR":3.8468763054446478,"ER":0.9929485126226361,"M_hot":0.48811629359143666,"BPR":2.7687581755549413},{"Tt4":2850.0,"Fn":18549.307969062378,"mdot_air":61.65192891626323,"TSFC":2.0611434828570784e-05,"lpt_PR":3.8212081455453784,"ER":0.9873039859249716,"M_hot":0.4834756007873462,"BPR":2.807934568042662}],"pyc":[{"Tt4":3200.0,"Fn":27355.466499452188,"mdot_air":72.15195535494185,"TSFC":2.1025942655082667e-05,"lpt_PR":3.985889795043167,"ER":1.027746958696962,"M_hot":0.5183983515294166,"BPR":2.5543360051408697},{"Tt4":3150.0,"Fn":25958.47401586975,"mdot_air":70.62108012097742,"TSFC":2.0958857487977327e-05,"lpt_PR":3.960631630844957,"ER":1.0219484223317739,"M_hot":0.5135295083037847,"BPR":2.5920620892027095},{"Tt4":3100.0,"Fn":24517.894172632517,"mdot_air":68.94928008847582,"TSFC":2.0922775998592916e-05,"lpt_PR":3.934370092976212,"ER":1.016026843984946,"M_hot":0.5085502896454768,"BPR":2.6314768921339198},{"Tt4":3050.0,"Fn":23103.31932849376,"mdot_air":67.2652119041192,"TSFC":2.090154640484403e-05,"lpt_PR":3.906813749474167,"ER":1.0099345648380855,"M_hot":0.5034114646353582,"BPR":2.6731709580098753},{"Tt4":3000.0,"Fn":21756.30843249315,"mdot_air":65.64132957332185,"TSFC":2.0887381189672602e-05,"lpt_PR":3.8789363961660897,"ER":1.0038075713958439,"M_hot":0.49825112575380626,"BPR":2.715804468624532},{"Tt4":2950.0,"Fn":20482.179165944435,"mdot_air":64.08779409715808,"TSFC":2.088007091245342e-05,"lpt_PR":3.851292090868402,"ER":0.9977278012569678,"M_hot":0.4931542519263546,"BPR":2.7584955010076584},{"Tt4":2900.0,"Fn":19282.562042116107,"mdot_air":62.60925542365542,"TSFC":2.0879785279126045e-05,"lpt_PR":3.8244511323385906,"ER":0.9917793812553539,"M_hot":0.48820573661629413,"BPR":2.8002809694304993}],"pc_floor_bilinear":2850.0,"pc_floor_hermite":2850.0,"pyc_first_fail":2850.0}},"herm":[{"q":"net thrust Fn","max_dev_pct":1.7687218417148165,"at_Tt4":2500.0},{"q":"air flow mdot_air","max_dev_pct":0.9172022595084997,"at_Tt4":2550.0},{"q":"bypass ratio BPR","max_dev_pct":0.5340539532435283,"at_Tt4":2500.0},{"q":"LPT pressure ratio","max_dev_pct":0.28472850412836087,"at_Tt4":2500.0},{"q":"HPC pressure ratio","max_dev_pct":0.26362252010956616,"at_Tt4":2500.0},{"q":"fuel-air ratio","max_dev_pct":0.13381143586163052,"at_Tt4":2500.0}],"timing":{"pc_cold_total":21.943168915999998,"pc_cold_assemble":5.763112583,"pc_cold_first_solve":16.180056333,"pc_warm_design":0.000664333,"pc_warm_design_alloc_MB":1.069504,"pc_warm_od":0.0008531875,"py_cold_total":17.733460041228682,"py_warm_design":2.648458292009309,"py_warm_od":1.6815317703876644,"py_design_iters":4,"ratio_cold":1.2373879020216092,"ratio_warm_design":3986.642680717816,"ratio_warm_od":1970.8818640541083,"py_tab_cold_total":3.6845623338595033,"py_tab_warm_design":0.500245250063017,"py_tab_warm_od":0.4673002914059907,"ratio_cold_tab":5.955434303377622,"ratio_warm_design_tab":753.0037647731137,"ratio_warm_od_tab":547.71113196805,"cea_to_tab_cold":4.81290813789904,"cea_to_tab_warm_design":5.294319719528924,"cea_to_tab_warm_od":3.598396579912998},"prov":{"pycycle_version":"4.4.1-dev","pycycle_clone":"ee7e16126a7a54b5fe35292c53b7eb4e9572620b","openmdao":"3.44.0","numpy":"1.26.4","scipy":"1.17.1","fuel_h":-1492173.08,"machine_cpu":"Apple M2 Pro","julia_version":"1.12.6","pc_commit":"a4311c3"},"design_targets":{"Fn_N":24465.218883932743,"Fn_lbf":5500.0,"Tt4_K":1777.7777777777778,"Tt4_degR":3200.0,"fan_PR":3.3,"lpc_PR":1.935,"hpc_PR":4.9,"BPR":2.413337877918124,"OPR":30.824261533296003}}
+</script>
+<script>
+"use strict";
+const DATA = JSON.parse(document.getElementById("DATA").textContent);
+const PC="#0072B2", PCH="#56B4E9", PY="#D55E00";
+const $=(s,r=document)=>r.querySelector(s), $$=(s,r=document)=>[...r.querySelectorAll(s)];
+const fmt=(x,d=3)=>{ if(x===null||x===undefined||Number.isNaN(x)) return "–";
+  const a=Math.abs(x);
+  if(a!==0 && (a<1e-3||a>=1e5)) return x.toExponential(d);
+  return x.toLocaleString("en-US",{maximumFractionDigits:d,minimumFractionDigits:0}); };
+const pct=(x,d=2)=>{ const s=x>=0?"+":"−"; return s+Math.abs(x).toFixed(d)+"%"; };
+
+/* ---- header one-paragraph answer, from DATA ---- */
+(function(){
+  const sc=Object.fromEntries(DATA.scalars.map(s=>[s.name,s]));
+  const mdot=sc["inlet air flow mdot_air"], tsfc=sc["TSFC"];
+  const st5=DATA.stations.find(s=>s.num==="5");
+  const t=DATA.timing;
+  const int0=v=>Math.round(v).toLocaleString("en-US");
+  // off-design deep-throttle bypass ratio, sweep A
+  const A=DATA.sweeps.A, bilA=A.pc_bilinear, pycA=A.pyc;
+  const deepT=Math.min(...bilA.map(p=>p.Tt4).filter(t=>pycA.some(q=>q.Tt4===t)));
+  const bDeep=bilA.find(p=>p.Tt4===deepT), pDeep=pycA.find(p=>p.Tt4===deepT);
+  $(".ans-acc").innerHTML=`On the shared bilinear interpolation, PyCycle's CEA thermodynamics arm, the cold `+
+    `gas path matches to under `+
+    `<b>0.01%</b> in total temperature and total pressure at every station through the burner exit and the `+
+    `whole bypass. The largest station-level difference is the low-pressure-turbine-exit total pressure, `+
+    `<b>${pct(st5.dPt)}</b> (${int0(st5.Pt_ours)} vs ${int0(st5.Pt_pyc)} Pa); air flow runs `+
+    `<b>${pct(mdot.d_rel)}</b>, thrust-specific fuel consumption <b>${pct(tsfc.d_rel)}</b>. Against PyCycle's `+
+    `faster TABULAR thermodynamics arm those same three differences run &minus;0.54% (Pt5), &minus;0.49% `+
+    `(air flow), &minus;0.82% (TSFC) &mdash; PyCycle's own CEA&rarr;TABULAR switch moves its answer by up to `+
+    `about 1%, so these differences sit inside PyCycle's own thermo-backend spread (&sect;2). `;
+  $(".ans-od").innerHTML=`Off design, both throttle sweeps track PyCycle's CEA arm in level and shape: the `+
+    `bypass ratio `+
+    `migrates 2.413 → ${bDeep.BPR.toFixed(3)} against PyCycle's 2.413 → ${pDeep.BPR.toFixed(3)} `+
+    `(within ${pct((bDeep.BPR-pDeep.BPR)/pDeep.BPR*100,1)} at Tt4 = ${deepT} °R), the mixer extraction ratio `+
+    `crosses unity with PyCycle near Tt4 ≈ 2800 °R, and the part-power fuel-consumption minimum sits within one `+
+    `50 °R step of PyCycle's. `;
+  $(".ans-speed").innerHTML=`Warm re-solves run about <b>≈550&ndash;750×</b> faster than PyCycle's fastest `+
+    `backend (TABULAR: table-interpolated thermo, no per-call equilibrium solve) &mdash; the `+
+    `operation-for-operation comparison, since PowerCycles' frozen-products polynomials are TABULAR's `+
+    `computational analogue. Against PyCycle's slowest backend (CEA: an equilibrium solve inside every `+
+    `property call) the same warm solves run about <b>${Math.round(t.ratio_warm_design/10)*10}×</b> (design) `+
+    `and <b>${Math.round(t.ratio_warm_od/10)*10}×</b> (off-design) faster &mdash; PyCycle's own CEA→TABULAR `+
+    `switch alone is worth 3.6&ndash;5.3× (&sect;4). The first cold solution runs <b>${t.ratio_cold_tab.toFixed(2)}×</b> `+
+    `slower than TABULAR (<b>${t.ratio_cold.toFixed(2)}×</b> slower than CEA), because it compiles the whole `+
+    `solver kernel while TABULAR's cold number skips both compilation and CEA's equilibrium solves. `;
+  $(".ans-rob").innerHTML=`On 50 °R warm-continuation steps, PowerCycles reaches a 1600 °R probe bound with no `+
+    `Newton failure at either flight condition — at least 18 and 25 steps past where PyCycle's CEA arm first `+
+    `fails, and 6 and 8 steps past its faster TABULAR arm.`;
+})();
+
+/* ================= SCHEMATIC ================= */
+(function(){
+  const W=980,H=380;
+  const box=(x,y,w,h,fill,stroke,label,sub,tcol)=>`
+    <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="6" fill="${fill}" stroke="${stroke}" stroke-width="1.3"/>
+    <text x="${x+w/2}" y="${y+h/2+(sub?-3:4)}" text-anchor="middle" font-size="13" font-weight="600" fill="${tcol||'#15202b'}">${label}</text>
+    ${sub?`<text x="${x+w/2}" y="${y+h/2+12}" text-anchor="middle" font-size="10" fill="#5a6b7b">${sub}</text>`:""}`;
+  const stn=(x,y,n)=>`<text x="${x}" y="${y}" text-anchor="middle" font-size="10" fill="#8a99a8" font-family="ui-monospace,monospace">${n}</text>`;
+  const arr=(x1,y1,x2,y2,col="#9fb0bd")=>`<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${col}" stroke-width="1.6" marker-end="url(#ah)"/>`;
+  const cy=196, ch=44;
+  const by=96, bh=32;
+  const cold="#eaf4fb", coldS="#7bb8dd", hot="#fbede4", hotS="#e39a6b", mix="#efe9f5", mixS="#b090c9", neut="#f1f4f7", neutS="#c3ced7";
+  let s=`<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,system-ui,sans-serif" role="img" aria-label="Two-spool mixed-flow turbofan schematic">
+    <defs><marker id="ah" markerWidth="7" markerHeight="7" refX="5.5" refY="3" orient="auto"><path d="M0,0 L5.5,3 L0,6 Z" fill="#9fb0bd"/></marker></defs>`;
+  s+=box(14,cy-6,66,ch+12,neut,neutS,"inlet","ambient 0")+stn(47,cy+ch/2+26,"1–2");
+  s+=arr(80,cy+ch/2,104,cy+ch/2);
+  s+=box(104,cy-6,58,ch+12,cold,coldS,"fan","")+stn(133,cy+ch/2+26,"21");
+  s+=`<circle cx="182" cy="${cy+ch/2}" r="4" fill="#5a6b7b"/>`;
+  s+=arr(162,cy+ch/2,178,cy+ch/2);
+  s+=`<path d="M182,${cy+ch/2} C182,150 200,${by+bh/2} 224,${by+bh/2}" fill="none" stroke="#7bb8dd" stroke-width="1.6"/>`;
+  s+=box(224,by,120,bh,cold,coldS,"bypass duct","")+stn(284,by-6,"13");
+  s+=`<path d="M344,${by+bh/2} C560,${by+bh/2} 636,150 660,${cy-4}" fill="none" stroke="#7bb8dd" stroke-width="1.6"/>`;
+  s+=arr(186,cy+ch/2,196,cy+ch/2);
+  const core=[["LPC","24",58],["HPC","3",58],["burner","4",64],["HPT","45",58],["LPT","5",58]];
+  let x=196;
+  core.forEach((c,i)=>{
+    const fill=(c[0]==="burner")?hot:(i<2?cold:hot), stroke=(c[0]==="burner")?hotS:(i<2?coldS:hotS);
+    s+=box(x,cy-6,c[2],ch+12,fill,stroke,c[0],"")+stn(x+c[2]/2,cy+ch/2+26,c[1]);
+    x+=c[2]; if(i<core.length-1){ s+=arr(x,cy+ch/2,x+10,cy+ch/2); x+=10; }
+  });
+  s+=arr(x,cy+ch/2,658,cy+ch/2);
+  s+=box(660,cy-24,58,ch+48,mix,mixS,"mixer","")+stn(689,cy+ch/2+40,"6");
+  s+=arr(718,cy+ch/2,732,cy+ch/2);
+  s+=box(732,cy-6,74,ch+12,mix,mixS,"ab duct","dry")+stn(769,cy+ch/2+26,"16–7");
+  s+=arr(806,cy+ch/2,820,cy+ch/2);
+  s+=`<path d="M820,${cy-10} L862,${cy+2} L906,${cy-14} L906,${cy+ch+10} L862,${cy+ch-2} L820,${cy+ch+14} Z" fill="${mix}" stroke="${mixS}" stroke-width="1.3"/>`;
+  s+=`<text x="863" y="${cy+ch/2+4}" text-anchor="middle" font-size="12" font-weight="600">nozzle</text>`;
+  s+=stn(862,cy+ch+30,"8–9");
+  const shY1=cy+ch+58, shY2=cy+ch+78;
+  s+=`<line x1="133" y1="${shY1}" x2="503" y2="${shY1}" stroke="${PC}" stroke-width="2.2"/>`;
+  s+=`<text x="150" y="${shY1-6}" font-size="10.5" fill="${PC}" font-weight="600">LP spool — fan + LPC driven by LPT</text>`;
+  s+=`<line x1="293" y1="${shY2}" x2="435" y2="${shY2}" stroke="#B7791F" stroke-width="2.2"/>`;
+  s+=`<text x="300" y="${shY2+14}" font-size="10.5" fill="#B7791F" font-weight="600">HP spool — HPC driven by HPT</text>`;
+  s+=`<path d="M312,${cy-6} C340,${cy-40} 392,${cy-40} 420,${cy-6}" fill="none" stroke="#8a99a8" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#ah)"/>`;
+  s+=`<text x="366" y="${cy-44}" text-anchor="middle" font-size="9.5" fill="#5a6b7b">cool3: HPC exit → HPT</text>`;
+  s+=`<path d="M282,${cy+ch+8} C330,${cy+ch+22} 440,${cy+ch+22} 478,${cy+ch+8}" fill="none" stroke="#8a99a8" stroke-width="1.4" stroke-dasharray="4 3" marker-end="url(#ah)"/>`;
+  s+=`<text x="380" y="${cy+ch+34}" text-anchor="middle" font-size="9.5" fill="#5a6b7b">cool1: HPC interstage → LPT</text>`;
+  s+=`<g font-size="10.5" fill="#5a6b7b">
+    <rect x="14" y="14" width="12" height="12" rx="2" fill="${cold}" stroke="${coldS}"/><text x="32" y="24">cold (air)</text>
+    <rect x="112" y="14" width="12" height="12" rx="2" fill="${hot}" stroke="${hotS}"/><text x="130" y="24">hot (combustion products)</text>
+    <rect x="300" y="14" width="12" height="12" rx="2" fill="${mix}" stroke="${mixS}"/><text x="318" y="24">mixed</text>
+    <line x1="380" y1="20" x2="404" y2="20" stroke="#8a99a8" stroke-width="1.4" stroke-dasharray="4 3"/><text x="410" y="24">cooling bleed</text></g>`;
+  s+=`</svg>`;
+  $("#schematic").innerHTML=s;
+})();
+
+/* ================= STATION TABLE ================= */
+(function(){
+  const tb=$("#stationTable tbody");
+  let rows=DATA.stations.slice();
+  let filter="all", shade=true, sortK=null, sortDir=1;
+  const maxAbsPt=Math.max(...rows.map(r=>Math.abs(r.dPt)));
+  // cold-side max magnitude for the caption
+  const coldMax=Math.max(...rows.filter(r=>r.side==="cold").flatMap(r=>[Math.abs(r.dTt),Math.abs(r.dPt)]));
+  const cm=$(".cold-max"); if(cm) cm.textContent="0.01%";
+  function shadeCell(v){
+    if(!shade) return "";
+    const a=Math.min(Math.abs(v)/maxAbsPt,1);
+    if(a<0.05) return "background:#f4faf6";
+    const alpha=(0.10+0.5*a).toFixed(2);
+    return `background:rgba(213,94,0,${alpha})`;
+  }
+  function draw(){
+    let rs=rows.filter(r=> filter==="all" ? true : filter==="cold" ? r.side==="cold" : r.side!=="cold");
+    if(sortK){ rs.sort((a,b)=>{ let x=a[sortK],y=b[sortK];
+      if(sortK==="num"){x=+x;y=+y;} return (x<y?-1:x>y?1:0)*sortDir; }); }
+    tb.innerHTML=rs.map(r=>`<tr class="${r.side==='cold'?'row-cold':'row-hot'}">
+      <td>${r.num} &middot; ${r.label}</td>
+      <td class="num">${r.Tt_ours.toFixed(2)}</td>
+      <td class="num">${r.Tt_pyc.toFixed(2)}</td>
+      <td class="num ${r.dTt<0?'neg':''}">${pct(r.dTt)}</td>
+      <td class="num">${Math.round(r.Pt_ours).toLocaleString("en-US")}</td>
+      <td class="num">${Math.round(r.Pt_pyc).toLocaleString("en-US")}</td>
+      <td class="num ${r.dPt<0?'neg':''}" style="${shadeCell(r.dPt)}">${pct(r.dPt)}</td>
+    </tr>`).join("");
+  }
+  $$("#stnFilter button").forEach(b=>b.onclick=()=>{ $$("#stnFilter button").forEach(x=>x.classList.remove("on"));
+    b.classList.add("on"); filter=b.dataset.f; draw(); });
+  $$("#stnShade button").forEach(b=>b.onclick=()=>{ $$("#stnShade button").forEach(x=>x.classList.remove("on"));
+    b.classList.add("on"); shade=b.dataset.s==="1"; draw(); });
+  $$("#stationTable thead th.s").forEach(th=>th.onclick=()=>{
+    const k=th.dataset.k; sortDir=(sortK===k)?-sortDir:1; sortK=k; draw(); });
+  draw();
+})();
+
+/* ================= SCALAR TABLE ================= */
+(function(){
+  const tb=$("#scalarTable tbody");
+  const fmtVal=(v,s)=>{ const u=s.unit;
+    if(u==="kg/(N.s)") return v.toExponential(4);
+    if(s.name.indexOf("FAR")>=0) return v.toFixed(6);
+    return v.toLocaleString("en-US",{maximumFractionDigits:4}); };
+  tb.innerHTML=DATA.scalars.map(s=>`<tr>
+    <td>${s.name}${s.unit!=="-"?` <span class="small">[${s.unit==="kg/(N.s)"?"kg/(N·s)":s.unit==="m2"?"m²":s.unit}]</span>`:""}</td>
+    <td class="num">${fmtVal(s.ours,s)}</td>
+    <td class="num">${fmtVal(s.pyc,s)}</td>
+    <td class="num ${s.d_rel<0?'neg':''}">${Math.abs(s.d_rel)<1e-6?"0.00%":pct(s.d_rel)}</td>
+    <td class="cause">${s.cause}</td>
+  </tr>`).join("");
+})();
+
+/* ================= GENERIC LINE CHART ================= */
+function lineChart(el, opts){
+  const w=opts.w||720, h=opts.h||360, m={l:66,r:18,t:14,b:46};
+  const pw=w-m.l-m.r, ph=h-m.t-m.b;
+  const all=opts.series.flatMap(s=>s.points);
+  const xs=all.map(p=>p.x), ys=all.map(p=>p.y);
+  const xd=opts.xdomain||[Math.min(...xs),Math.max(...xs)];
+  let ymin=Math.min(...ys), ymax=Math.max(...ys); const pad=(ymax-ymin)*0.08||1; ymin-=pad; ymax+=pad;
+  const X=x=>m.l+(x-xd[0])/(xd[1]-xd[0])*pw;
+  const Y=y=>m.t+ph-(y-ymin)/(ymax-ymin)*ph;
+  function niceStep(r){ const p=Math.pow(10,Math.floor(Math.log10(r))); const f=r/p;
+    return (f<1.5?1:f<3?2:f<7?5:10)*p; }
+  function ticks(a,b,n){ const step=niceStep((b-a)/n); const t0=Math.ceil(a/step)*step, out=[];
+    for(let v=t0; v<=b+1e-9; v+=step) out.push(+v.toFixed(10)); return out; }
+  const xticks=ticks(xd[0],xd[1],6), yticks=ticks(ymin,ymax,5);
+  const fY=opts.fmtY||(v=>fmt(v,3));
+  let s=`<svg viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,system-ui,sans-serif">`;
+  yticks.forEach(v=>{ s+=`<line x1="${m.l}" y1="${Y(v)}" x2="${w-m.r}" y2="${Y(v)}" stroke="#eef2f6" stroke-width="1"/>
+    <text x="${m.l-8}" y="${Y(v)+3.5}" text-anchor="end" font-size="10.5" fill="#8a99a8" font-family="ui-monospace,monospace">${fY(v)}</text>`; });
+  xticks.forEach(v=>{ s+=`<line x1="${X(v)}" y1="${m.t}" x2="${X(v)}" y2="${m.t+ph}" stroke="#f4f7fa" stroke-width="1"/>
+    <text x="${X(v)}" y="${h-m.b+18}" text-anchor="middle" font-size="10.5" fill="#8a99a8" font-family="ui-monospace,monospace">${v}</text>`; });
+  s+=`<line x1="${m.l}" y1="${m.t}" x2="${m.l}" y2="${m.t+ph}" stroke="#c3ced7"/>`;
+  s+=`<line x1="${m.l}" y1="${m.t+ph}" x2="${w-m.r}" y2="${m.t+ph}" stroke="#c3ced7"/>`;
+  s+=`<text x="${m.l+pw/2}" y="${h-6}" text-anchor="middle" font-size="11.5" fill="#5a6b7b">${opts.xlabel||""}</text>`;
+  s+=`<text transform="translate(15,${m.t+ph/2}) rotate(-90)" text-anchor="middle" font-size="11.5" fill="#5a6b7b">${opts.ylabel||""}</text>`;
+  function marker(mk,x,y,c){
+    if(mk==="sq") return `<rect x="${x-3}" y="${y-3}" width="6" height="6" fill="#fff" stroke="${c}" stroke-width="1.6"/>`;
+    if(mk==="tri") return `<path d="M${x},${y-3.6} L${x+3.4},${y+3} L${x-3.4},${y+3} Z" fill="#fff" stroke="${c}" stroke-width="1.5"/>`;
+    return `<circle cx="${x}" cy="${y}" r="3.2" fill="#fff" stroke="${c}" stroke-width="1.7"/>`;
+  }
+  opts.series.forEach(se=>{
+    if(!se.points.length) return;
+    const d=se.points.map((p,i)=>(i?"L":"M")+X(p.x)+","+Y(p.y)).join(" ");
+    s+=`<path d="${d}" fill="none" stroke="${se.color}" stroke-width="2" ${se.dash?`stroke-dasharray="${se.dash}"`:""}/>`;
+    se.points.forEach(p=> s+=marker(se.marker,X(p.x),Y(p.y),se.color));
+  });
+  // mark the interior minimum if requested (TSFC hook)
+  if(opts.markMin){
+    opts.series.forEach(se=>{
+      if(se.points.length<3) return;
+      let mi=0; se.points.forEach((p,i)=>{ if(p.y<se.points[mi].y) mi=i; });
+      if(mi>0 && mi<se.points.length-1){
+        const p=se.points[mi];
+        s+=`<circle cx="${X(p.x)}" cy="${Y(p.y)}" r="5.5" fill="none" stroke="${se.color}" stroke-width="1.6"/>`;
+        s+=`<text x="${X(p.x)}" y="${Y(p.y)+20}" text-anchor="middle" font-size="9.5" fill="${se.color}">min ${p.x}°R</text>`;
+      }
+    });
+  }
+  s+=`<rect id="hov" x="${m.l}" y="${m.t}" width="${pw}" height="${ph}" fill="transparent"/>`;
+  s+=`<line id="guide" x1="0" y1="${m.t}" x2="0" y2="${m.t+ph}" stroke="#15202b" stroke-width="1" opacity="0"/>`;
+  s+=`</svg>`;
+  el.innerHTML=s;
+  const svg=el.querySelector("svg"), guide=el.querySelector("#guide"), tip=$("#tooltip");
+  const hov=el.querySelector("#hov");
+  hov.addEventListener("mousemove",ev=>{
+    const pt=svg.createSVGPoint(); pt.x=ev.clientX; pt.y=ev.clientY;
+    const loc=pt.matrixTransform(svg.getScreenCTM().inverse());
+    const xsAll=[...new Set(opts.series.flatMap(se=>se.points.map(p=>p.x)))];
+    let best=xsAll[0], bd=1e9; xsAll.forEach(xv=>{ const d=Math.abs(X(xv)-loc.x); if(d<bd){bd=d;best=xv;} });
+    guide.setAttribute("x1",X(best)); guide.setAttribute("x2",X(best)); guide.setAttribute("opacity","1");
+    let rws=opts.series.map(se=>{ const p=se.points.find(pp=>pp.x===best); if(!p) return "";
+      return `<div class="r"><span class="lab" style="color:${se.color}">● ${se.name}</span><span>${fY(p.y)}</span></div>`; }).join("");
+    tip.innerHTML=`<div class="r"><span class="lab">${opts.xlabel.split("(")[0].trim()}</span><span>${best}</span></div>${rws}`;
+    tip.style.opacity="1";
+    tip.style.left=(window.scrollX+ev.clientX+14)+"px";
+    tip.style.top=(window.scrollY+ev.clientY-10)+"px";
+  });
+  hov.addEventListener("mouseleave",()=>{ guide.setAttribute("opacity","0"); tip.style.opacity="0"; });
+}
+
+/* ================= SWEEP CHART ================= */
+(function(){
+  const QTY=[
+    {k:"BPR", label:"bypass ratio BPR", unit:"–", fmt:v=>v.toFixed(3)},
+    {k:"ER", label:"mixer extraction ratio", unit:"–", fmt:v=>v.toFixed(3)},
+    {k:"TSFC", label:"TSFC", unit:"kg/(N·s)", fmt:v=>(v*1e5).toFixed(3)+"e−5", mark:true},
+    {k:"Fn", label:"net thrust Fn", unit:"N", fmt:v=>Math.round(v).toLocaleString("en-US")},
+    {k:"mdot_air", label:"inlet air flow", unit:"kg/s", fmt:v=>v.toFixed(1)},
+    {k:"lpt_PR", label:"LPT pressure ratio", unit:"–", fmt:v=>v.toFixed(3)},
+    {k:"M_hot", label:"mixer hot-inlet Mach", unit:"–", fmt:v=>v.toFixed(3)},
+  ];
+  let qi=0, cond="A";
+  const vis={pyc:true, pc_bilinear:true, pc_hermite:true};
+  const SER=[
+    {id:"pyc", name:"PyCycle", color:PY, dash:"6 3", marker:"sq"},
+    {id:"pc_bilinear", name:"PowerCycles (bilinear)", color:PC, dash:"", marker:"circ"},
+    {id:"pc_hermite", name:"PowerCycles (Hermite)", color:PCH, dash:"3 3", marker:"tri"},
+  ];
+  $("#swQty").innerHTML=QTY.map((q,i)=>`<button class="chip ${i===0?'on':''}" data-q="${i}">${q.label}</button>`).join("");
+  $("#swSeries").innerHTML=SER.map(s=>`<span class="stog" data-id="${s.id}">
+     <span class="swatch" style="border-top-color:${s.color};${s.dash?'border-top-style:dashed':''}"></span>${s.name}</span>`).join("");
+  function draw(){
+    const q=QTY[qi], sw=DATA.sweeps[cond];
+    const series=SER.filter(s=>vis[s.id]).map(s=>({ ...s, key:s.id,
+      points: sw[s.id].map(p=>({x:p.Tt4, y:p[q.k]})) }));
+    lineChart($("#sweepChart"), {
+      w:760,h:380, xlabel:`burner-exit temperature Tt4 (°R)`, ylabel:`${q.label} [${q.unit}]`,
+      series, fmtY:q.fmt, markMin:!!q.mark,
+      xdomain:[Math.min(...sw.pyc.map(p=>p.Tt4))-40, 3240]
+    });
+    const q1=q.label;
+    $("#sweepCap").innerHTML=`<b>${q1}</b> along the ${sw.cond} throttle sweep, design point at the right `+
+      `(Tt4 = 3200 °R). PyCycle converged to ${sw.pyc.length} points (first Newton failure at `+
+      `${sw.pyc_first_fail} °R); PowerCycles to ${sw.pc_bilinear.length} on each arm at 50 °R steps. `+
+      (q.mark?`The circled point marks each code's interior minimum. `:``)+
+      `Hover to read exact values; toggle any series with the pills above.`;
+  }
+  $$("#swQty button").forEach(b=>b.onclick=()=>{ $$("#swQty button").forEach(x=>x.classList.remove("on"));
+    b.classList.add("on"); qi=+b.dataset.q; draw(); });
+  $$("#swCond button").forEach(b=>b.onclick=()=>{ $$("#swCond button").forEach(x=>x.classList.remove("on"));
+    b.classList.add("on"); cond=b.dataset.c; draw(); });
+  $$("#swSeries .stog").forEach(el=>el.onclick=()=>{ const id=el.dataset.id; vis[id]=!vis[id];
+    el.classList.toggle("off",!vis[id]); draw(); });
+  draw();
+})();
+
+/* ================= HERMITE BAR CHART ================= */
+(function(){
+  const rows=DATA.herm.slice().sort((a,b)=>b.max_dev_pct-a.max_dev_pct);
+  const w=720,h=42+rows.length*40, m={l:180,r:70,t:10,b:24};
+  const pw=w-m.l-m.r; const maxV=Math.max(...rows.map(r=>r.max_dev_pct));
+  const X=v=>m.l+v/(maxV*1.12)*pw;
+  let s=`<svg viewBox="0 0 ${w} ${h}" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,system-ui,sans-serif">`;
+  [0,0.25,0.5,0.75,1.0].forEach(f=>{ const v=+(maxV*1.12*f).toFixed(2); const x=X(v);
+    s+=`<line x1="${x}" y1="${m.t}" x2="${x}" y2="${h-m.b}" stroke="#eef2f6"/>
+        <text x="${x}" y="${h-8}" text-anchor="middle" font-size="10" fill="#8a99a8" font-family="ui-monospace,monospace">${v}%</text>`; });
+  rows.forEach((r,i)=>{ const y=m.t+i*40+8, bw=X(r.max_dev_pct)-m.l;
+    s+=`<text x="${m.l-10}" y="${y+16}" text-anchor="end" font-size="11.5" fill="#15202b">${r.q}</text>`;
+    s+=`<rect x="${m.l}" y="${y+4}" width="${bw}" height="20" rx="3" fill="${PC}" opacity="0.85"/>`;
+    s+=`<text x="${m.l+bw+8}" y="${y+18}" font-size="11" fill="#0072B2" font-family="ui-monospace,monospace" font-weight="600">${r.max_dev_pct.toFixed(2)}%</text>`;
+  });
+  s+=`</svg>`;
+  $("#hermChart").innerHTML=s;
+})();
+
+/* ================= TIMING TABLE ================= */
+(function(){
+  const t=DATA.timing;
+  const rows=[
+    ["cold to design solved<br><span class='small'>fresh process, incl. compilation</span>",
+      t.pc_cold_total.toFixed(2)+" s", t.py_cold_total.toFixed(2)+" s", t.py_tab_cold_total.toFixed(3)+" s",
+      t.ratio_cold.toFixed(2)+"× slower", t.ratio_cold_tab.toFixed(2)+"× slower",
+      "ours: assemble "+t.pc_cold_assemble.toFixed(2)+" s + first solve "+t.pc_cold_first_solve.toFixed(2)+
+      " s (compiles the kernel). PyCycle-CEA: build/setup + a run_model solving design AND a coupled "+
+      "off-design point. PyCycle-TABULAR: import + build/setup/solve, no compilation and no equilibrium solves"],
+    ["warm design solve",
+      (t.pc_warm_design*1e3).toFixed(2)+" ms", Math.round(t.py_warm_design*1e3)+" ms",
+      Math.round(t.py_tab_warm_design*1e3)+" ms",
+      "≈"+Math.round(t.ratio_warm_design/10)*10+"× faster", "≈"+Math.round(t.ratio_warm_design_tab)+"× faster",
+      "ours: seed march + Newton over 137 unknowns, "+t.pc_warm_design_alloc_MB.toFixed(2)+" MB allocated"],
+    ["warm off-design, per throttle point",
+      (t.pc_warm_od*1e3).toFixed(2)+" ms", Math.round(t.py_warm_od*1e3)+" ms",
+      Math.round(t.py_tab_warm_od*1e3)+" ms",
+      "≈"+Math.round(t.ratio_warm_od/10)*10+"× faster", "≈"+Math.round(t.ratio_warm_od_tab)+"× faster",
+      "warm continuation on the 35 kft ladder"],
+  ];
+  $("#timingTable tbody").innerHTML=rows.map(r=>`<tr>
+    <td>${r[0]}</td><td class="num">${r[1]}</td><td class="num">${r[2]}</td><td class="num">${r[3]}</td>
+    <td class="num" style="color:${r[4].indexOf('slower')>=0?'#B23A00':'#0072B2'}">${r[4]}</td>
+    <td class="num" style="color:${r[5].indexOf('slower')>=0?'#B23A00':'#0072B2'}">${r[5]}</td>
+    <td class="cause">${r[6]}</td></tr>`).join("");
+})();
+
+/* ================= CONVERGENCE TAB ================= */
+$$("#robTab button").forEach(b=>b.onclick=()=>{
+  $$("#robTab button").forEach(x=>x.classList.remove("on")); b.classList.add("on");
+  const r=b.dataset.r;
+  $("#robPy").hidden = (r==="pc"); $("#robPc").hidden = (r==="py");
+});
+
+/* ================= PARTITION DIAGRAM ================= */
+(function(){
+  const W=760,H=210;
+  const bx=(x,y,w,h,fill,stroke,title,sub,tcol)=>`
+    <rect x="${x}" y="${y}" width="${w}" height="${h}" rx="8" fill="${fill}" stroke="${stroke}" stroke-width="1.4"/>
+    <text x="${x+w/2}" y="${y+22}" text-anchor="middle" font-size="13" font-weight="700" fill="${tcol}">${title}</text>
+    <text x="${x+w/2}" y="${y+40}" text-anchor="middle" font-size="11" fill="#5a6b7b">${sub}</text>`;
+  let s=`<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,system-ui,sans-serif">`;
+  s+=`<defs><marker id="pa" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#c3ced7"/></marker></defs>`;
+  s+=bx(250,10,260,44,"#eef2f7","#0072B2","one authored manifest","component values, mode-tagged rows","#15202b");
+  s+=`<line x1="330" y1="54" x2="200" y2="86" stroke="#c3ced7" stroke-width="1.4" marker-end="url(#pa)"/>`;
+  s+=`<line x1="430" y1="54" x2="560" y2="86" stroke="#c3ced7" stroke-width="1.4" marker-end="url(#pa)"/>`;
+  s+=bx(20,90,330,104,"#f6f9fc","#0072B2","DESIGN partition — 137×137","solves the sizing scalars","#0072B2");
+  s+=`<text x="185" y="150" text-anchor="middle" font-size="11" fill="#15202b">map scale factors + fixed geometry: SOLVED</text>`;
+  s+=`<text x="185" y="168" text-anchor="middle" font-size="10.5" fill="#5a6b7b">imposes each machine's design PR / efficiency at its map node</text>`;
+  s+=bx(410,90,330,104,"#fbf7ef","#B7791F","OFF-DESIGN partition — 119×119","freezes them, runs the engine","#B7791F");
+  s+=`<text x="575" y="150" text-anchor="middle" font-size="11" fill="#15202b">same scalars: FROZEN from the design solution</text>`;
+  s+=`<text x="575" y="168" text-anchor="middle" font-size="10.5" fill="#5a6b7b">solves PR / efficiency / flow + the freed bypass split</text>`;
+  s+=`<text x="380" y="207" text-anchor="middle" font-size="10.5" fill="#8a99a8">137 − 119 columns: the five machines' map scalars + sized geometry (e.g. nozzle throat area)</text>`;
+  s+=`</svg>`;
+  $("#partition").innerHTML=s;
+})();
+
+/* ================= SCROLL-SPY NAV ================= */
+(function(){
+  const links=$$("#toc a"), secs=links.map(a=>$(a.getAttribute("href")));
+  const obs=new IntersectionObserver(es=>{
+    es.forEach(e=>{ if(e.isIntersecting){ const id="#"+e.target.id;
+      links.forEach(a=>a.classList.toggle("active",a.getAttribute("href")===id)); } });
+  },{rootMargin:"-45% 0px -50% 0px"});
+  secs.forEach(s=>s&&obs.observe(s));
+})();
+</script>
+</body>
+</html>
