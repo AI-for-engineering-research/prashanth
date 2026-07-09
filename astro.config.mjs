@@ -32,6 +32,7 @@ const ASSETS_DIR = fileURLToPath(new URL('./assets', import.meta.url));
 const MIME = {
   '.svg': 'image/svg+xml', '.png': 'image/png', '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp',
+  '.html': 'text/html; charset=utf-8',
   '.pdf': 'application/pdf',
 };
 const serveAssets = {

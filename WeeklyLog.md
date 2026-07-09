@@ -188,3 +188,52 @@ I think the demo went pretty well actually! I forgot to record the agent session
 
  So in a new session I basically explained to my agent what the problem was, how I would like to approach it, and how I would want it explained to me in a gentle way, starting with the basics using math so that I could follow what is happening and why this is a problem and how to solve it - it came up with this: [Dual numbers and perturbation confusion](/prashanth/assets/08_dual_numbers_and_the_igt_gap.html)
 
+
+## Week 5
+
+### Turbojet comparison
+
+*2026-07-03 (Fri, 3rd Jul)*
+
+After some work and some clean up of the code that the agent had written, I think I reached a point where we could do a systematic comparison against pyCycle, which is an alternate gas turbine analysis code. It's good to see that our code performs really well in comparison to this. That is in fact a small bug that I think is in pyCycle where the enthalpy of formation of the fuel is not being accounted for properly. 
+
+I had Claude create walk-through that actually shows me how this comparison looks like. I tried this in a multi-agent way, where I had an "Orchestrator agent" (running Opus) just go about and set multiple sub-agents to set up equivalent examples in pyCycle and this pacakage, profile them and then build the [html walkthrough](/prashanth/assets/19_turbofan_pycycle_comparison.html).  
+
+I'm also starting to find the tone and some of the Claude-isms a little grating lately. Perhaps I've been spending too much time with the agents... in any case I wrote a cold read skill that has a subagent review any human-facing output like these walkthroughs or docs or ADRs and does two things - 1) it runs a simple python linter script that searches for matches in my "banned words" list - things like "honestly", "genuinely", "obviously" and then 2) an agent that is context-denied reads it and poses questions about anything that is unclear - particularly, I found that using something like Backlog.md results in Claude asking me or referring to certain numbered decisions, like "per ADR-0011" or "task 3's area"... etc. Even as one person working on this project, I don't remember what ADR11 actually says! So this context-denied agent identifies all of those and asks the authoring agent to re-do these in a way that is actually helpful. You can see the skill [here](/prashanth/skills/cold-read).
+
+
+## Week 6
+
+### Skill and the multiplier effect
+
+*2026-07-03 (Fri, 3rd Jul)*
+
+What's becoming abundantly clear to me is that these AI models are really great for the tactical type of programming and when you can do better on the strategic side (which really comes from developing skill and experience, which I'm still learning so much I don't know), you can exploit the power of these models more efficiently. I think there is something to be said for learning the basics of how these models work so you have a good mental-model for what is a reasonable ask and what should not be delegated to the model because it's going to come and bite you a few days later. 
+
+I think it's really important to have a mental model of what you are trying to achieve in your research. This goes back to good research practices - start with why, then think about what that would achieve, and only after that should we be diving into how we go about doing the research. (of course there are exceptions - new methods that have become available might spark new research directions but you still want to ground it in the "why" behind the research). The difference between good research practices and bad ones get rapidly and disproportionately amplified when the researchers are using AI agents. 
+
+### Claude teaches me some math
+
+One of the interesting problems in this type of physical system, like a turbofan engine, is that there are distinct physical regimes that need to be assessed. For example, if you take a convergent nozzle, there are two possible regimes where it can operate:
+1. Subsonic, where the Mach number at the convergent nozzle exit is  <1 and the static pressure equals the ambient static pressure.
+2. The Mach number in the exit plane is exactly equal to 1 and the pressure is greater than the ambient pressure. Referred to as choked flow - [see my web-app here](https://www.mit.edu/~prash/interactive/quasi-1d-nozzle.html).
+
+Normally, the way people deal with these things when the nozzle contributes a row of the Newton's system to be solved is to simultaneously solve both physical branches. To say, we could have a subsonic condition or we could have a choked condition, so let's just calculate both branches and then have an if condition to see which one is physically valid, and then use that when you are populating the Jacobian for the Newton system. I was wondering whether this if-else would create problems and whether there is a more robust way to do this, because you could be flip-flopping across this boundary if you're just about choked. So I had a friendly chat with Claude. 
+
+It very quickly pointed me to a field that I am surprised I have not come across before, to be honest, called "Non-linear complementarity problems". Basically, similar conditions appear all the time where if you have two conditions, $a, b$ such that **either** 
+1. $a\geq0$ and $b=0$. 
+OR
+2. $a=0$ and $b \geq 0$
+
+ Turns out the way to write this is $0 \leq a \perp b \geq 0$ (read as "a and b are complementary to each other"). You can then define a function $\varphi(a,b) = a + b - \sqrt{a^2 +b^2}$ , the roots of this exactly satisfy these complementarity conditions! So we could write:
+ $$
+ \begin{align}
+  M_e \leq1\;&; p_e = p_{\text{amb}}\\
+  M_e=1\;&; p_e \geq p_{\text{amb}}\\
+  \\
+  \therefore a &= 1 - M_e\\
+  b &= p_e - p_{\text{amb}}
+  \end{align}
+ $$
+
+ it was really something to have Claude teach me this idea, which honestly is really quite useful over here because you could create a smooth version of this $\varphi$ function that you can then relax towards the real solution.  I think this should help with robustness but this is something I need to test still. Here's [the math explainer that Claude built to teach me this idea](/prashanth/assets/kinks-and-folds.html).
